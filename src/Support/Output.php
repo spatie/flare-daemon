@@ -13,8 +13,8 @@ class Output
     protected $stderr;
 
     /**
-     * @param resource|null $stdout
-     * @param resource|null $stderr
+     * @param  resource|null  $stdout
+     * @param  resource|null  $stderr
      */
     public function __construct($stdout = null, $stderr = null, protected bool $verbose = false)
     {
@@ -54,8 +54,8 @@ class Output
     }
 
     /**
-     * @param resource|null $stream
-     * @param array<string, mixed> $context
+     * @param  resource|null  $stream
+     * @param  array<string, mixed>  $context
      */
     protected function write($stream, string $level, string $message, array $context = []): void
     {
@@ -74,8 +74,7 @@ class Output
     }
 
     /**
-     * @param array<string, mixed> $context
-     *
+     * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
     protected function normalize(array $context): array

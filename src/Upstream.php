@@ -18,7 +18,7 @@ class Upstream
     }
 
     /**
-     * @param array<array-key, mixed> $payload
+     * @param  array<array-key, mixed>  $payload
      * @return PromiseInterface<array{status: int, body: mixed, headers: array<string, array<int, string>>}>
      */
     public function send(string $apiKey, string $type, array $payload): PromiseInterface

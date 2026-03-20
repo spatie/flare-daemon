@@ -23,11 +23,10 @@ class Buffer
         public readonly string $apiKey,
         public readonly string $type,
         protected int $byteThreshold,
-    ) {
-    }
+    ) {}
 
     /**
-     * @param array<array-key, mixed> $payload
+     * @param  array<array-key, mixed>  $payload
      */
     public function add(array $payload, float $arrivedAt): void
     {

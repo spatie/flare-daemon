@@ -10,8 +10,7 @@ use Spatie\FlareDaemon\Support\Output;
 use Spatie\FlareDaemon\Upstream;
 
 /**
- * @param array{verbose?: bool, byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int, summary_interval?: float} $options
- *
+ * @param  array{verbose?: bool, byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int, summary_interval?: float}  $options
  * @return array{daemon_url: string, client: Browser, ingest: Ingest, server: Server, stdout: resource, stderr: resource}
  */
 function createDaemonFixtureWithCapture(string $upstreamBaseUrl, array $options = []): array
@@ -24,8 +23,8 @@ function createDaemonFixtureWithCapture(string $upstreamBaseUrl, array $options 
     assert(is_resource($stderr));
 
     $output = new Output($stdout, $stderr, verbose: $options['verbose'] ?? false);
-    $quotaState = new QuotaState();
-    $browser = (new Browser())
+    $quotaState = new QuotaState;
+    $browser = (new Browser)
         ->withRejectErrorResponse(false)
         ->withTimeout(1.0);
 

@@ -3,7 +3,7 @@
 use Spatie\FlareDaemon\QuotaState;
 
 it('pauses and resumes a single key and type', function () {
-    $quotaState = new QuotaState();
+    $quotaState = new QuotaState;
 
     $quotaState->pause('api-key', 'traces', 10.0, 'Trace quota exceeded');
 
@@ -18,7 +18,7 @@ it('pauses and resumes a single key and type', function () {
 });
 
 it('can permanently pause all types for an invalid api key', function () {
-    $quotaState = new QuotaState();
+    $quotaState = new QuotaState;
 
     $quotaState->pauseAll('api-key', 'Invalid API key');
 

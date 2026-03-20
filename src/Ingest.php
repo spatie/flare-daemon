@@ -42,7 +42,7 @@ class Ingest
         protected int $defaultRetryAfterSeconds = 60,
         protected float $summaryIntervalSeconds = 10.0,
     ) {
-        $this->quotaState = $quotaState ?? new QuotaState();
+        $this->quotaState = $quotaState ?? new QuotaState;
         $this->lastSummaryAt = microtime(true);
         $this->maintenanceTimer = $this->loop->addPeriodicTimer(
             $this->maintenanceIntervalSeconds,
@@ -56,7 +56,7 @@ class Ingest
     }
 
     /**
-     * @param array<array-key, mixed> $payload
+     * @param  array<array-key, mixed>  $payload
      */
     public function accept(string $apiKey, string $type, array $payload): void
     {
@@ -83,7 +83,7 @@ class Ingest
     }
 
     /**
-     * @param array<array-key, mixed> $payload
+     * @param  array<array-key, mixed>  $payload
      * @return PromiseInterface<array{status: int, body: mixed, headers: array<string, string>}>
      */
     public function diagnose(string $apiKey, string $type, array $payload): PromiseInterface
@@ -165,7 +165,7 @@ class Ingest
             }
         }
 
-        return $status === [] ? ['keys' => new \stdClass()] : $status;
+        return $status === [] ? ['keys' => new \stdClass] : $status;
     }
 
     protected function maintain(): void
@@ -242,7 +242,7 @@ class Ingest
     }
 
     /**
-     * @param array{status: int, body: mixed, headers: array<string, array<int, string>>} $response
+     * @param  array{status: int, body: mixed, headers: array<string, array<int, string>>}  $response
      */
     protected function completeSuccessfulSend(string $apiKey, string $type, array $response): void
     {
@@ -341,7 +341,7 @@ class Ingest
     }
 
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param  array<string, array<int, string>>  $headers
      */
     protected function parseRetryAfter(array $headers, float $now): ?float
     {
@@ -393,8 +393,7 @@ class Ingest
     }
 
     /**
-     * @param array<string, string> $headers
-     *
+     * @param  array<string, string>  $headers
      * @return array{status: int, body: mixed, headers: array<string, string>}
      */
     protected function result(int $status, mixed $body, array $headers = []): array
@@ -408,7 +407,7 @@ class Ingest
 
     /**
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param  array<string, array<int, string>>  $headers
      * @return array<string, string>
      */
     protected function forwardedHeaders(array $headers): array

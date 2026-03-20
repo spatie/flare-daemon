@@ -259,18 +259,18 @@ it('treats upstream 204 as success for normal payloads', function () {
     $captured = makeOutputWithCapture();
     $upstream = createUpstreamFixture(fn () => new Response(204, [], ''));
     $address = freeLocalAddress();
-    $browser = (new Browser())->withRejectErrorResponse(false)->withTimeout(1.0);
+    $browser = (new Browser)->withRejectErrorResponse(false)->withTimeout(1.0);
     $upstreamClient = new Upstream($browser, $upstream['base_url'], 'FlareDaemon/tests');
     $ingest = new Ingest(
-        loop: \React\EventLoop\Loop::get(),
+        loop: Loop::get(),
         upstream: $upstreamClient,
         output: $captured['output'],
-        quotaState: new QuotaState(),
+        quotaState: new QuotaState,
         flushAfterSeconds: 0.05,
         maintenanceIntervalSeconds: 0.01,
     );
     $server = new Server(
-        loop: \React\EventLoop\Loop::get(),
+        loop: Loop::get(),
         ingest: $ingest,
         output: $captured['output'],
         listenAddress: $address,
@@ -329,13 +329,13 @@ it('logs a clear error when the port is already in use', function () {
     rememberCloser($blocker);
 
     $captured = makeOutputWithCapture();
-    $browser = (new Browser())->withRejectErrorResponse(false)->withTimeout(1.0);
+    $browser = (new Browser)->withRejectErrorResponse(false)->withTimeout(1.0);
     $upstream = new Upstream($browser, 'http://127.0.0.1:1', 'FlareDaemon/tests');
     $ingest = new Ingest(
         loop: Loop::get(),
         upstream: $upstream,
         output: $captured['output'],
-        quotaState: new QuotaState(),
+        quotaState: new QuotaState,
         maintenanceIntervalSeconds: 60.0,
     );
     rememberShutdown(fn () => $ingest->shutdown());

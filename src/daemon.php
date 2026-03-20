@@ -24,12 +24,12 @@ $flushAfterSeconds = (float) (getenv('FLARE_DAEMON_FLUSH_AFTER_SECONDS') ?: 10);
 $upstreamTimeout = (float) (getenv('FLARE_DAEMON_UPSTREAM_TIMEOUT_SECONDS') ?: 10);
 $version = getenv('FLARE_DAEMON_VERSION') ?: 'dev';
 
-$browser = (new Browser())
+$browser = (new Browser)
     ->withRejectErrorResponse(false)
     ->withTimeout($upstreamTimeout);
 
 $loop = Loop::get();
-$quotaState = new QuotaState();
+$quotaState = new QuotaState;
 $upstream = new Upstream($browser, $upstreamBaseUrl, "FlareDaemon/{$version}");
 $ingest = new Ingest($loop, $upstream, $output, $quotaState, $bufferBytes, $flushAfterSeconds);
 $server = new Server($loop, $ingest, $output, $listenAddress);

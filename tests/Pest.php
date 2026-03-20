@@ -1,5 +1,7 @@
 <?php
 
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Loop;
 use React\Http\Browser;
 use React\Http\HttpServer;
@@ -100,7 +102,7 @@ function makeOutputWithCapture(): array
 }
 
 /**
- * @param resource $stream
+ * @param  resource  $stream
  */
 function readStream($stream): string
 {
@@ -110,8 +112,7 @@ function readStream($stream): string
 }
 
 /**
- * @param callable(\Psr\Http\Message\ServerRequestInterface): \Psr\Http\Message\ResponseInterface $handler
- *
+ * @param  callable(ServerRequestInterface): ResponseInterface  $handler
  * @return array{
  *     base_url: string,
  *     requests: ArrayObject<int, array{
@@ -125,10 +126,10 @@ function readStream($stream): string
 function createUpstreamFixture(callable $handler): array
 {
     /** @var ArrayObject<int, array{method: string, path: string, headers: array<string, array<int, string>>, body: array<array-key, mixed>|null}> $requests */
-    $requests = new ArrayObject();
+    $requests = new ArrayObject;
     $address = freeLocalAddress();
 
-    $server = new HttpServer(function (\Psr\Http\Message\ServerRequestInterface $request) use ($handler, $requests) {
+    $server = new HttpServer(function (ServerRequestInterface $request) use ($handler, $requests) {
         $body = (string) $request->getBody();
 
         if ($request->getHeaderLine('content-encoding') === 'gzip') {
@@ -158,16 +159,15 @@ function createUpstreamFixture(callable $handler): array
 }
 
 /**
- * @param array{byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int} $options
- *
+ * @param  array{byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int}  $options
  * @return array{daemon_url: string, client: Browser, ingest: Ingest, server: Server, quota_state: QuotaState}
  */
 function createDaemonFixture(string $upstreamBaseUrl, array $options = []): array
 {
     $address = freeLocalAddress();
     $output = makeOutput();
-    $quotaState = new QuotaState();
-    $browser = (new Browser())
+    $quotaState = new QuotaState;
+    $browser = (new Browser)
         ->withRejectErrorResponse(false)
         ->withTimeout(1.0);
 
@@ -206,7 +206,7 @@ function createDaemonFixture(string $upstreamBaseUrl, array $options = []): arra
 
 function waitFor(float $seconds): void
 {
-    $deferred = new Deferred();
+    $deferred = new Deferred;
     Loop::addTimer($seconds, fn () => $deferred->resolve(true));
 
     \React\Async\await($deferred->promise());
@@ -228,8 +228,7 @@ function waitUntil(callable $condition, float $timeout = 1.0, float $interval = 
 }
 
 /**
- * @param ArrayObject<int, array{method: string, path: string, headers: array<string, array<int, string>>, body: array<array-key, mixed>|null}> $requests
- *
+ * @param  ArrayObject<int, array{method: string, path: string, headers: array<string, array<int, string>>, body: array<array-key, mixed>|null}>  $requests
  * @return array<array-key, mixed>
  */
 function upstreamBody(ArrayObject $requests, int $index): array
@@ -246,7 +245,7 @@ function upstreamBody(ArrayObject $requests, int $index): array
 }
 
 /**
- * @param ArrayObject<int, array{method: string, path: string, headers: array<string, array<int, string>>, body: array<array-key, mixed>|null}> $requests
+ * @param  ArrayObject<int, array{method: string, path: string, headers: array<string, array<int, string>>, body: array<array-key, mixed>|null}>  $requests
  */
 function upstreamPath(ArrayObject $requests, int $index): string
 {

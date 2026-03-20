@@ -11,9 +11,9 @@ use React\Http\Middleware\RequestBodyBufferMiddleware;
 use React\Http\Middleware\StreamingRequestMiddleware;
 use React\Promise\PromiseInterface;
 use React\Socket\SocketServer;
+use RuntimeException;
 use Spatie\FlareDaemon\Support\Json;
 use Spatie\FlareDaemon\Support\Output;
-use RuntimeException;
 
 class Server
 {
@@ -31,7 +31,7 @@ class Server
         protected int $maxRequestBytes = 2097152,
     ) {
         $this->httpServer = new HttpServer(
-            new StreamingRequestMiddleware(),
+            new StreamingRequestMiddleware,
             new LimitConcurrentRequestsMiddleware(100),
             new RequestBodyBufferMiddleware($this->maxRequestBytes),
             fn (ServerRequestInterface $request) => $this->handle($request),
@@ -159,7 +159,7 @@ class Server
     }
 
     /**
-     * @param array<string, string> $headers
+     * @param  array<string, string>  $headers
      */
     protected function jsonResponse(int $status, mixed $payload, array $headers = []): Response
     {
