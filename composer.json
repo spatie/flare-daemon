@@ -1,9 +1,12 @@
 {
     "name": "spatie/flare-daemon",
-    "description": "Flare daemon",
+    "description": "Local HTTP daemon for asynchronous Flare delivery",
     "keywords": [
         "spatie",
-        "flare-daemon"
+        "flare",
+        "flare-daemon",
+        "error-tracking",
+        "performance-monitoring"
     ],
     "homepage": "https://github.com/spatie/flare-daemon",
     "license": "MIT",
@@ -15,26 +18,39 @@
         }
     ],
     "require": {
-        "php": "^8.4"
+        "php": "^8.2",
+        "ext-zlib": "*",
+        "psr/http-message": "^1.1|^2.0",
+        "react/event-loop": "^1.5",
+        "react/http": "^1.11",
+        "react/promise": "^3.2",
+        "react/socket": "^1.16"
     },
     "require-dev": {
-        "pestphp/pest": "^4.0",
         "laravel/pint": "^1.0",
-        "spatie/ray": "^1.28"
+        "pestphp/pest": "^4.0",
+        "phpstan/phpstan": "^2.1",
+        "react/async": "^4.3",
+        "spatie/ray": "^1.28",
+        "symfony/process": "^7.2"
     },
     "autoload": {
         "psr-4": {
-            "Spatie\\Daemon\\": "src"
+            "Spatie\\FlareDaemon\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Spatie\\Daemon\\Tests\\": "tests"
+            "Spatie\\FlareDaemon\\Tests\\": "tests"
         }
     },
+    "bin": [
+        "src/daemon.php"
+    ],
     "scripts": {
+        "analyse": "vendor/bin/phpstan analyse",
         "test": "vendor/bin/pest",
-            "test-coverage": "vendor/bin/pest --coverage",
+        "test-coverage": "vendor/bin/pest --coverage",
         "format": "vendor/bin/pint"
     },
     "config": {
