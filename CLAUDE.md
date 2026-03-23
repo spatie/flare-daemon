@@ -12,6 +12,7 @@ composer format                    # Pint code formatting
 bash build.sh                      # Build daemon.phar
 php src/daemon.php                 # Run daemon locally (needs composer install first)
 php src/daemon.php --verbose       # Run with per-request DEBUG logging
+php src/daemon.php --test          # Run with NullUpstream (no HTTP out), prints stats every 5s
 ```
 
 ## Smoke-testing a build
@@ -25,12 +26,12 @@ kill %1
 
 ## Smoke-testing with a real API key
 
-Start the daemon (with `--verbose` for full per-payload logs), then run `test.sh` with your Flare API key:
+Start the daemon (with `--verbose` for full per-payload logs), then run `tests/test.sh` with your Flare API key:
 
 ```bash
 php src/daemon.php --verbose &
-bash test.sh YOUR_API_KEY              # uses http://127.0.0.1:8787 by default
-bash test.sh -u http://localhost:9000 YOUR_API_KEY  # custom daemon URL
+bash tests/test.sh YOUR_API_KEY              # uses http://127.0.0.1:8787 by default
+bash tests/test.sh -u http://localhost:9000 YOUR_API_KEY  # custom daemon URL
 kill %1
 ```
 
@@ -58,6 +59,22 @@ docker run -p 8787:8787 flare-daemon
 - 429 pauses that (key, type); 403 pauses all types for that key permanently. Normal items are dropped on pause, test items are kept.
 - Upstream sends one payload per request (no batch API in v1).
 - The errors CF worker is a transparent proxy — it passes through whatever status the real Flare API returns (currently 204). Traces/logs workers return a hardcoded 201. The daemon must treat any 2xx as success, not maintain an allowlist.
+
+## Load testing
+
+k6 must be installed (`brew install k6`). Start the daemon in test mode, then run k6 in a second terminal:
+
+```bash
+php src/daemon.php --test &
+k6 run loadtest/loadtest.js
+kill %1
+```
+
+`--test` mode uses `NullUpstream` — payloads are accepted and flushed through the full pipeline but no HTTP leaves the process. Stats (accepted, forwarded, buffered, memory) are printed every 5 seconds.
+
+The k6 script ramps from 1→200 VUs over 80 seconds, posting realistic error payloads to `/v1/errors`. Pass `DAEMON_URL` and `API_KEY` env vars to customize.
+
+See `loadtest/README.md` for details on memory measurement and custom scenarios.
 
 ## After every code change
 

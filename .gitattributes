@@ -14,7 +14,7 @@
 /docs export-ignore
 /UPGRADING.md export-ignore
 /build.sh export-ignore
-/test.sh export-ignore
+/loadtest export-ignore
 /box.json.dist export-ignore
 /Dockerfile export-ignore
 /docker export-ignore

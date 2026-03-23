@@ -26,6 +26,10 @@ class Ingest
 
     protected QuotaState $quotaState;
 
+    protected int $totalAccepted = 0;
+
+    protected int $totalForwarded = 0;
+
     /** @var array<string, int> */
     protected array $forwardedSinceLastSummary = [];
 
@@ -69,6 +73,8 @@ class Ingest
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
             return;
         }
+
+        $this->totalAccepted++;
 
         $this->output->debug('payload accepted', [
             'api_key' => $apiKey,
@@ -166,6 +172,36 @@ class Ingest
         }
 
         return $status === [] ? ['keys' => new \stdClass] : $status;
+    }
+
+    /**
+     * @return array{
+     *     accepted: int,
+     *     forwarded: int,
+     *     buffered: int,
+     *     buffered_bytes: int,
+     *     in_flight: int
+     * }
+     */
+    public function stats(): array
+    {
+        $buffered = 0;
+        $bufferedBytes = 0;
+
+        foreach ($this->buffers as $typedBuffers) {
+            foreach ($typedBuffers as $buffer) {
+                $buffered += $buffer->count();
+                $bufferedBytes += $buffer->bufferedBytes();
+            }
+        }
+
+        return [
+            'accepted' => $this->totalAccepted,
+            'forwarded' => $this->totalForwarded,
+            'buffered' => $buffered,
+            'buffered_bytes' => $bufferedBytes,
+            'in_flight' => $this->inFlight,
+        ];
     }
 
     protected function maintain(): void
@@ -297,6 +333,7 @@ class Ingest
                 'body' => Upstream::summarizeBody($body),
             ]);
         } else {
+            $this->totalForwarded++;
             $this->forwardedSinceLastSummary[$type] = ($this->forwardedSinceLastSummary[$type] ?? 0) + 1;
             $this->output->debug('payload forwarded upstream', [
                 'api_key' => $apiKey,

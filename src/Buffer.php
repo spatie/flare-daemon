@@ -110,6 +110,11 @@ class Buffer
         return count($this->items);
     }
 
+    public function bufferedBytes(): int
+    {
+        return $this->bufferedBytes;
+    }
+
     public function isFlushing(): bool
     {
         return $this->flushing;

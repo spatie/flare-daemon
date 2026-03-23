@@ -79,11 +79,11 @@ All configuration is done through environment variables:
 
 ### Smoke-testing with a real API key
 
-Start the daemon, then use `test.sh` to send a real error payload through the full buffering/flushing path:
+Start the daemon, then use `tests/test.sh` to send a real error payload through the full buffering/flushing path:
 
 ```bash
 php src/daemon.php --verbose &
-bash test.sh YOUR_API_KEY
+bash tests/test.sh YOUR_API_KEY
 ```
 
 The script checks `/health`, sends a normal error to `/v1/errors`, and polls `/status` until the buffer drains. Pass `-u URL` to target a different daemon address.
@@ -95,6 +95,17 @@ bash build.sh
 ```
 
 This downloads [Box](https://github.com/box-project/box) (if needed) and compiles the PHAR.
+
+### Load testing
+
+Start the daemon in test mode (accepts payloads, doesn't forward upstream), then run the k6 script:
+
+```bash
+php src/daemon.php --test &
+k6 run loadtest/loadtest.js
+```
+
+On an M-series Mac the daemon sustains ~18,000 reports/sec with p95 latency under 11ms. See `loadtest/README.md` for details.
 
 ## Testing
 
