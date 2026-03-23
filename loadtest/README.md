@@ -25,7 +25,7 @@ k6 run loadtest/loadtest.js
 ## What `--test` mode does
 
 - Replaces the real upstream with a null upstream that instantly returns `204`
-- Prints periodic stats to stdout: accepted/forwarded counts, buffer size, memory usage
+- Prints periodic stats to stdout: received/buffered/forwarded counts, pending buffer size, memory usage
 - The full buffer and flush pipeline still runs — the only difference is no HTTP leaves the process
 
 ## Goals

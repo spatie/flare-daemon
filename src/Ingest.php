@@ -26,7 +26,9 @@ class Ingest
 
     protected QuotaState $quotaState;
 
-    protected int $totalAccepted = 0;
+    protected int $totalReceived = 0;
+
+    protected int $totalBuffered = 0;
 
     protected int $totalForwarded = 0;
 
@@ -64,6 +66,8 @@ class Ingest
      */
     public function accept(string $apiKey, string $type, array $payload): void
     {
+        $this->totalReceived++;
+
         if ($this->shuttingDown) {
             return;
         }
@@ -74,7 +78,7 @@ class Ingest
             return;
         }
 
-        $this->totalAccepted++;
+        $this->totalBuffered++;
 
         $this->output->debug('payload accepted', [
             'api_key' => $apiKey,
@@ -146,7 +150,13 @@ class Ingest
     }
 
     /**
-     * @return array{keys: array<string, array<string, array{buffered: int, paused: bool, retry_after: string|null, last_429_reason: string|null}>>|object}
+     * @return array{
+     *     total_received: int,
+     *     total_buffered: int,
+     *     total_forwarded: int,
+     *     total_dropped: int,
+     *     keys: array<string, array<string, array{buffered: int, paused: bool, retry_after: string|null, last_429_reason: string|null}>>|object
+     * }
      */
     public function status(): array
     {
@@ -156,7 +166,12 @@ class Ingest
             ...$this->quotaState->keys(),
         ]);
 
-        $status = [];
+        $status = [
+            'total_received' => $this->totalReceived,
+            'total_buffered' => $this->totalBuffered,
+            'total_forwarded' => $this->totalForwarded,
+            'total_dropped' => $this->totalReceived - $this->totalForwarded,
+        ];
 
         foreach ($keys as $apiKey) {
             foreach (QuotaState::ENTITY_TYPES as $type) {
@@ -171,35 +186,41 @@ class Ingest
             }
         }
 
-        return $status === [] ? ['keys' => new \stdClass] : $status;
+        if (! isset($status['keys'])) {
+            $status['keys'] = new \stdClass;
+        }
+
+        return $status;
     }
 
     /**
      * @return array{
-     *     accepted: int,
-     *     forwarded: int,
+     *     received: int,
      *     buffered: int,
-     *     buffered_bytes: int,
+     *     forwarded: int,
+     *     pending: int,
+     *     pending_bytes: int,
      *     in_flight: int
      * }
      */
     public function stats(): array
     {
-        $buffered = 0;
-        $bufferedBytes = 0;
+        $pending = 0;
+        $pendingBytes = 0;
 
         foreach ($this->buffers as $typedBuffers) {
             foreach ($typedBuffers as $buffer) {
-                $buffered += $buffer->count();
-                $bufferedBytes += $buffer->bufferedBytes();
+                $pending += $buffer->count();
+                $pendingBytes += $buffer->bufferedBytes();
             }
         }
 
         return [
-            'accepted' => $this->totalAccepted,
+            'received' => $this->totalReceived,
+            'buffered' => $this->totalBuffered,
             'forwarded' => $this->totalForwarded,
-            'buffered' => $buffered,
-            'buffered_bytes' => $bufferedBytes,
+            'pending' => $pending,
+            'pending_bytes' => $pendingBytes,
             'in_flight' => $this->inFlight,
         ];
     }

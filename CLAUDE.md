@@ -70,7 +70,9 @@ k6 run loadtest/loadtest.js
 kill %1
 ```
 
-`--test` mode uses `NullUpstream` — payloads are accepted and flushed through the full pipeline but no HTTP leaves the process. Stats (accepted, forwarded, buffered, memory) are printed every 5 seconds.
+`--test` mode uses `NullUpstream` — payloads are accepted and flushed through the full pipeline but no HTTP leaves the process. Stats (received, buffered, forwarded, pending, memory) are printed every 5 seconds.
+
+The `/status` endpoint exposes lifetime counters: `total_received` (all 202 responses), `total_buffered` (passed the pause check), `total_forwarded` (sent upstream successfully), and `total_dropped` (received minus forwarded).
 
 The k6 script ramps from 1→200 VUs over 80 seconds, posting realistic error payloads to `/v1/errors`. Pass `DAEMON_URL` and `API_KEY` env vars to customize.
 

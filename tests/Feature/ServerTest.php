@@ -19,7 +19,7 @@ it('exposes health and status endpoints', function () {
     expect($healthResponse->getStatusCode())->toBe(200)
         ->and(json_decode((string) $healthResponse->getBody(), true))->toBe(['status' => 'ok'])
         ->and($statusResponse->getStatusCode())->toBe(200)
-        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['keys' => []]);
+        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
 });
 
 it('validates incoming requests', function () {
@@ -144,7 +144,7 @@ it('returns upstream errors for test payloads without mutating daemon quota stat
         ->and($testResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and($testResponse->getHeaderLine('Retry-After'))->toBe('60')
         ->and((string) $testResponse->getBody())->toBe('Trace quota exceeded')
-        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['keys' => []]);
+        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
 });
 
 it('returns validation and rejection responses for test payloads', function () {

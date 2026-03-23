@@ -94,10 +94,11 @@ if ($testMode) {
     $loop->addPeriodicTimer(5.0, function () use ($ingest, $output): void {
         $stats = $ingest->stats();
         $output->info('stats', [
-            'accepted' => $stats['accepted'],
-            'forwarded' => $stats['forwarded'],
+            'received' => $stats['received'],
             'buffered' => $stats['buffered'],
-            'buffered_bytes' => $stats['buffered_bytes'],
+            'forwarded' => $stats['forwarded'],
+            'pending' => $stats['pending'],
+            'pending_bytes' => $stats['pending_bytes'],
             'in_flight' => $stats['in_flight'],
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
