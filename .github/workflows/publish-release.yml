@@ -1,0 +1,48 @@
+name: Publish Release
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Resolve release version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and smoke-test PHAR
+        env:
+          FLARE_DAEMON_VERSION: ${{ steps.version.outputs.version }}
+        run: bash tests/smoke/phar.sh
+
+      - name: Generate checksum
+        run: shasum -a 256 daemon.phar > daemon.phar.sha256
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            daemon.phar
+            daemon.phar.sha256
+          overwrite_files: true

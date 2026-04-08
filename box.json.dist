@@ -4,6 +4,9 @@
         "src",
         "vendor"
     ],
+    "files": [
+        "version.txt"
+    ],
     "main": "src/daemon.php",
     "check-requirements": false,
     "chmod": "0755",

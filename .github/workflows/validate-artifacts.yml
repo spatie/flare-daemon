@@ -1,0 +1,64 @@
+name: Validate Artifacts
+
+on:
+  push:
+    paths:
+      - 'bin/**'
+      - 'build.sh'
+      - 'box.json.dist'
+      - 'composer.json'
+      - 'Dockerfile'
+      - 'docker/**'
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/validate-artifacts.yml'
+  pull_request:
+    paths:
+      - 'bin/**'
+      - 'build.sh'
+      - 'box.json.dist'
+      - 'composer.json'
+      - 'Dockerfile'
+      - 'docker/**'
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/validate-artifacts.yml'
+
+jobs:
+  phar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: bash tests/smoke/phar.sh
+
+  composer-bin:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: bash tests/smoke/composer-bin.sh
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: bash tests/smoke/docker.sh

@@ -7,6 +7,7 @@ BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/flare-daemon-build.XXXXXX")"
 BOX_CACHE_DIR="${ROOT_DIR}/.box/bin"
 BOX_PHAR="${BOX_CACHE_DIR}/box.phar"
 OUTPUT_PHAR="${ROOT_DIR}/daemon.phar"
+BOX_VERSION="${BOX_VERSION:-4.6.2}"
 
 cleanup() {
     rm -rf "${BUILD_DIR}"
@@ -22,11 +23,11 @@ ensure_box() {
     mkdir -p "${BOX_CACHE_DIR}"
 
     if [[ ! -f "${BOX_PHAR}" ]]; then
-        curl -fsSL "https://github.com/box-project/box/releases/latest/download/box.phar" -o "${BOX_PHAR}"
+        curl -fsSL "https://github.com/box-project/box/releases/download/${BOX_VERSION}/box.phar" -o "${BOX_PHAR}"
         chmod +x "${BOX_PHAR}"
     fi
 
-    BOX_CMD=(php "${BOX_PHAR}")
+    BOX_CMD=(php -d error_reporting=24575 "${BOX_PHAR}")
 }
 
 trap cleanup EXIT
@@ -44,6 +45,10 @@ trap cleanup EXIT
     cd "${BUILD_DIR}"
     tar -xf -
 )
+
+printf '%s\n' "${FLARE_DAEMON_VERSION:-dev}" > "${BUILD_DIR}/version.txt"
+
+export COMPOSER_ROOT_VERSION="${FLARE_DAEMON_VERSION:-dev}"
 
 composer install \
     --working-dir="${BUILD_DIR}" \

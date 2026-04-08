@@ -67,7 +67,7 @@ Client packages should depend on compatible daemon versions, but should not own 
 ### Docker
 
 ```bash
-docker run -d --name flare-daemon -p 8787:8787 spatie/flare-daemon
+docker run -d --name flare-daemon -p 8787:8787 ghcr.io/spatie/flare-daemon
 ```
 
 ### PHAR
@@ -87,7 +87,7 @@ php daemon.phar --verbose
 ```
 
 ```bash
-docker run -d --name flare-daemon -p 8787:8787 spatie/flare-daemon --verbose
+docker run -d --name flare-daemon -p 8787:8787 ghcr.io/spatie/flare-daemon --verbose
 ```
 
 ### Configuration
@@ -121,6 +121,8 @@ bash build.sh
 ```
 
 This downloads [Box](https://github.com/box-project/box) (if needed) and compiles the PHAR.
+
+Maintainers can use [`RELEASING.md`](RELEASING.md) for the GitHub-release-driven artifact publishing process.
 
 ### Load testing
 

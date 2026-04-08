@@ -1,11 +1,15 @@
 FROM composer:2 AS build
 
+ARG FLARE_DAEMON_VERSION=dev
+
 WORKDIR /app
 COPY . .
 RUN composer check-platform-reqs --no-dev
-RUN bash ./build.sh
+RUN FLARE_DAEMON_VERSION=${FLARE_DAEMON_VERSION} bash ./build.sh
 
 FROM php:8.2-cli-alpine
+
+ARG FLARE_DAEMON_VERSION=dev
 
 RUN apk add --no-cache curl
 
@@ -15,6 +19,10 @@ COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 ENV FLARE_DAEMON_LISTEN=0.0.0.0:8787
+ENV FLARE_DAEMON_VERSION=${FLARE_DAEMON_VERSION}
+
+LABEL org.opencontainers.image.title="Flare Daemon"
+LABEL org.opencontainers.image.version="${FLARE_DAEMON_VERSION}"
 
 EXPOSE 8787
 

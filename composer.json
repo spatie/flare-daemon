@@ -18,6 +18,7 @@
         }
     ],
     "require": {
+        "composer-runtime-api": "^2.2",
         "php": "^8.2",
         "ext-zlib": "*",
         "psr/http-message": "^1.1|^2.0",
@@ -45,7 +46,7 @@
         }
     },
     "bin": [
-        "src/daemon.php"
+        "bin/flare-daemon"
     ],
     "scripts": {
         "analyse": "vendor/bin/phpstan analyse",

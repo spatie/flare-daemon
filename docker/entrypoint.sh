@@ -10,7 +10,7 @@ shutdown() {
 
 trap shutdown TERM INT
 
-php /app/daemon.phar &
+php /app/daemon.phar "$@" &
 child=$!
 
 wait "$child"
