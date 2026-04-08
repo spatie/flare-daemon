@@ -102,8 +102,21 @@ class Ingest
             return resolve($this->result(503, ['message' => 'Daemon is shutting down']));
         }
 
+        $this->output->debug('payload accepted', [
+            'api_key' => $apiKey,
+            'type' => $type,
+            'test' => true,
+        ]);
+
         return $this->upstream->send($apiKey, $type, $payload)->then(
-            function (array $response): array {
+            function (array $response) use ($apiKey, $type): array {
+                $this->output->debug('payload forwarded upstream', [
+                    'api_key' => $apiKey,
+                    'type' => $type,
+                    'status' => $response['status'],
+                    'test' => true,
+                ]);
+
                 return $this->result(
                     $response['status'],
                     $response['body'],
@@ -113,6 +126,7 @@ class Ingest
             function (Throwable $throwable): array {
                 $this->output->error('upstream diagnostic request failed', [
                     'exception' => $throwable,
+                    'test' => true,
                 ]);
 
                 return $this->result(502, ['message' => 'Upstream request failed']);

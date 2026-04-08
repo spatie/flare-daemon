@@ -145,6 +145,56 @@ it('logs individual payloads at debug level in verbose mode', function () {
     expect($stdout)->toContain('DEBUG')
         ->toContain('payload accepted')
         ->toContain('payload forwarded upstream');
+    expect($stdout)->not->toContain('"test":true');
+});
+
+it('logs test payloads at debug level in verbose mode', function () {
+    $upstream = createUpstreamFixture(fn () => new Response(204, [], ''));
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], [
+        'verbose' => true,
+    ]);
+
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        [
+            'Content-Type' => 'application/json',
+            'X-API-Token' => 'api-key',
+            'X-Flare-Test' => '1',
+        ],
+        encodePayload(['message' => 'verbose-test-payload']),
+    ));
+
+    waitUntil(fn () => count($upstream['requests']) >= 1);
+    waitFor(0.05);
+
+    $stdout = readStream($daemon['stdout']);
+
+    expect($stdout)->toContain('DEBUG')
+        ->toContain('payload accepted')
+        ->toContain('payload forwarded upstream')
+        ->toContain('"test":true')
+        ->toContain('"status":204');
+});
+
+it('marks failed test-payload upstream errors with test=true', function () {
+    $daemon = createDaemonFixtureWithCapture('http://127.0.0.1:1', ['flush_after' => 1.0]);
+
+    $response = \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        [
+            'Content-Type' => 'application/json',
+            'X-API-Token' => 'api-key',
+            'X-Flare-Test' => '1',
+        ],
+        encodePayload(['message' => 'unreachable-test-payload']),
+    ));
+
+    expect($response->getStatusCode())->toBe(502);
+
+    $stderr = readStream($daemon['stderr']);
+
+    expect($stderr)->toContain('upstream diagnostic request failed')
+        ->toContain('"test":true');
 });
 
 it('does not log debug messages when verbose is disabled', function () {
@@ -162,6 +212,32 @@ it('does not log debug messages when verbose is disabled', function () {
             'X-API-Token' => 'api-key',
         ],
         encodePayload(['message' => 'quiet-test']),
+    ));
+
+    waitUntil(fn () => count($upstream['requests']) >= 1);
+    waitFor(0.05);
+
+    $stdout = readStream($daemon['stdout']);
+
+    expect($stdout)->not->toContain('DEBUG');
+    expect($stdout)->not->toContain('payload accepted');
+    expect($stdout)->not->toContain('payload forwarded');
+});
+
+it('does not log test payloads at debug level when verbose is disabled', function () {
+    $upstream = createUpstreamFixture(fn () => new Response(204, [], ''));
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], [
+        'verbose' => false,
+    ]);
+
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        [
+            'Content-Type' => 'application/json',
+            'X-API-Token' => 'api-key',
+            'X-Flare-Test' => '1',
+        ],
+        encodePayload(['message' => 'quiet-test-payload']),
     ));
 
     waitUntil(fn () => count($upstream['requests']) >= 1);
