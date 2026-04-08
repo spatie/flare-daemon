@@ -89,7 +89,9 @@ See `loadtest/README.md` for details on memory measurement and custom scenarios.
 
 ## After every code change
 
-Run `composer test` and `composer analyse` after every code change. Both must pass before considering the change complete.
+Run `composer test` AND `composer analyse` after every code change. Both must pass before considering the change complete.
+
+This is non-negotiable: tests passing is necessary but not sufficient. Static analysis catches a different class of mistakes (type drift, undefined access, dead code, mixin/macro confusion in test DSLs) that the test runner will not. If you've made any edit since the last `composer analyse` run — even a one-line test tweak — the prior signal is stale and cannot be used to claim the diff is clean. Re-run before answering "is this ready", "are you happy with this", "should I commit", or any similar self-review question.
 
 ## Code style
 
