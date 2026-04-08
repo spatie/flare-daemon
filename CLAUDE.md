@@ -60,6 +60,15 @@ docker run -p 8787:8787 flare-daemon
 - Upstream sends one payload per request (no batch API in v1).
 - The errors CF worker is a transparent proxy — it passes through whatever status the real Flare API returns (currently 204). Traces/logs workers return a hardcoded 201. The daemon must treat any 2xx as success, not maintain an allowlist.
 
+## Distribution / Positioning
+
+- The daemon is intended to be installed by default through the shared Flare PHP client dependency chain, but not enabled automatically.
+- Daemon transport is opt-in at runtime even when this package is present.
+- The daemon is framework-agnostic. Laravel may add wrapper commands, but the daemon must work for standalone PHP and Laravel integrations.
+- Composer/vendor-bin is the default application install path. PHAR and Docker are additional operator-facing distribution channels.
+- Versioning should be treated as daemon-repo driven: one daemon version stream, mirrored across Packagist tags, PHAR releases, and Docker tags.
+- Keep this file brief. Use `README.md` for fuller packaging and versioning context.
+
 ## Load testing
 
 k6 must be installed (`brew install k6`). Start the daemon in test mode, then run k6 in a second terminal:

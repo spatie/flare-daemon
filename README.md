@@ -36,6 +36,32 @@ The daemon is a single PHP process built on ReactPHP's event loop:
 - **Composer.lock watcher** — optional periodic timer that triggers graceful shutdown on file changes
 - **Signal handlers** — SIGINT/SIGTERM trigger graceful shutdown (drain buffers, then stop)
 
+## Packaging & Versioning
+
+### Default install, opt-in transport
+
+The intended integration model is that the daemon is installed by default through Flare's shared PHP client packages, including Laravel integrations that depend on that client layer. The presence of the daemon package should not enable daemon transport automatically.
+
+Runtime activation remains explicit. Installation and onboarding docs may steer new users toward enabling the daemon, especially for logging, but "installed by default" and "enabled by default" are separate decisions.
+
+### Distribution channels
+
+Composer is the default application install path. The daemon should expose a stable vendor binary for local execution, process managers, and framework wrappers.
+
+PHAR and Docker are additional operator-facing distribution channels:
+
+- **Composer / vendor bin** — the default path for app installs
+- **PHAR** — a standalone artifact for operators who want a single-file deployment
+- **Docker** — a container/sidecar artifact for environments such as Kubernetes
+
+Laravel may add convenience wrappers around the daemon binary, but the daemon itself is framework-agnostic and must work for standalone PHP and Laravel users alike.
+
+### Versioning model
+
+The daemon should have one canonical version stream owned by this repository's Git tags. Packagist package versions, PHAR releases, and Docker image tags should all track that same daemon version.
+
+Client packages should depend on compatible daemon versions, but should not own the daemon's version number themselves. The daemon release cadence and operator-facing artifacts are defined at the daemon package level.
+
 ## Installation
 
 ### Docker
@@ -73,8 +99,8 @@ All configuration is done through environment variables:
 | `FLARE_DAEMON_LISTEN` | `127.0.0.1:8787` | Address to listen on |
 | `FLARE_DAEMON_UPSTREAM` | `https://ingress.flareapp.io` | Flare ingress URL |
 | `FLARE_DAEMON_BUFFER_BYTES` | `262144` (256 KB) | Size threshold per buffer (used by maintenance safety net) |
-| `FLARE_DAEMON_FLUSH_AFTER` | `10` | Seconds before maintenance flushes oldest buffered items (safety net) |
-| `FLARE_DAEMON_UPSTREAM_TIMEOUT` | `10` | Timeout in seconds for upstream requests |
+| `FLARE_DAEMON_FLUSH_AFTER_SECONDS` | `10` | Seconds before maintenance flushes oldest buffered items (safety net) |
+| `FLARE_DAEMON_UPSTREAM_TIMEOUT_SECONDS` | `10` | Timeout in seconds for upstream requests |
 | `FLARE_COMPOSER_LOCK` | _(none)_ | Path to `composer.lock` — daemon stops when the file changes |
 
 ### Smoke-testing with a real API key
