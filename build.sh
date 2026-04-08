@@ -48,7 +48,13 @@ trap cleanup EXIT
 
 printf '%s\n' "${FLARE_DAEMON_VERSION:-dev}" > "${BUILD_DIR}/version.txt"
 
-export COMPOSER_ROOT_VERSION="${FLARE_DAEMON_VERSION:-dev}"
+COMPOSER_BUILD_VERSION="${FLARE_DAEMON_VERSION:-dev}"
+
+if [[ "${COMPOSER_BUILD_VERSION}" == "dev" ]]; then
+    COMPOSER_BUILD_VERSION="dev-main"
+fi
+
+export COMPOSER_ROOT_VERSION="${COMPOSER_BUILD_VERSION}"
 
 composer install \
     --working-dir="${BUILD_DIR}" \
