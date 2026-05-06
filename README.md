@@ -48,17 +48,18 @@ Runtime activation remains explicit. Installation and onboarding docs may steer 
 
 Composer is the default application install path. The daemon should expose a stable vendor binary for local execution, process managers, and framework wrappers.
 
-PHAR and Docker are additional operator-facing distribution channels:
+PHAR, Docker, and Helm are additional operator-facing distribution channels:
 
 - **Composer / vendor bin** — the default path for app installs
 - **PHAR** — a standalone artifact for operators who want a single-file deployment
-- **Docker** — a container/sidecar artifact for environments such as Kubernetes
+- **Docker** — a container artifact for containerized environments
+- **Helm** — a Kubernetes DaemonSet chart published as an OCI chart to GitHub Container Registry
 
 Laravel may add convenience wrappers around the daemon binary, but the daemon itself is framework-agnostic and must work for standalone PHP and Laravel users alike.
 
 ### Versioning model
 
-The daemon should have one canonical version stream owned by this repository's Git tags. Packagist package versions, PHAR releases, and Docker image tags should all track that same daemon version.
+The daemon should have one canonical version stream owned by this repository's Git tags. Packagist package versions, PHAR releases, Docker image tags, and Helm chart versions should all track that same daemon version. The Docker image tags are `v`-prefixed, while the Helm chart version is plain SemVer and uses a `v`-prefixed `appVersion`.
 
 Client packages should depend on compatible daemon versions, but should not own the daemon's version number themselves. The daemon release cadence and operator-facing artifacts are defined at the daemon package level.
 

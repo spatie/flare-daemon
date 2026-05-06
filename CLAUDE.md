@@ -9,6 +9,8 @@ composer test                      # Pest tests
 composer test --filter=ServerTest  # Single test file
 composer analyse                   # PHPStan level 8
 composer format                    # Pint code formatting
+helm lint charts/flare-daemon      # Helm chart linting
+helm template flare-daemon charts/flare-daemon  # Render chart locally
 bash build.sh                      # Build daemon.phar
 php src/daemon.php                 # Run daemon locally (needs composer install first)
 php src/daemon.php --verbose       # Run with per-request DEBUG logging
@@ -44,6 +46,18 @@ docker build -t flare-daemon .
 docker run -p 8787:8787 flare-daemon
 ```
 
+## Helm
+
+The chart lives in `charts/flare-daemon` and installs the daemon as a DaemonSet with a ClusterIP Service. Validate chart changes with:
+
+```bash
+helm lint charts/flare-daemon
+helm template flare-daemon charts/flare-daemon
+helm package charts/flare-daemon --destination /tmp --version 1.2.3 --app-version v1.2.3
+```
+
+The release workflow publishes the chart as `oci://ghcr.io/spatie/charts/flare-daemon`. Release tags may be `X.Y.Z` or `vX.Y.Z`; Docker image tags are published as `vX.Y.Z`, and the Helm chart uses chart version `X.Y.Z` with app version `vX.Y.Z`.
+
 ## Testing patterns
 
 - Tests use ReactPHP's event loop — everything is async. Use `waitFor()` / `waitUntil()` for timing, never `sleep()`.
@@ -65,8 +79,8 @@ docker run -p 8787:8787 flare-daemon
 - The daemon is intended to be installed by default through the shared Flare PHP client dependency chain, but not enabled automatically.
 - Daemon transport is opt-in at runtime even when this package is present.
 - The daemon is framework-agnostic. Laravel may add wrapper commands, but the daemon must work for standalone PHP and Laravel integrations.
-- Composer/vendor-bin is the default application install path. PHAR and Docker are additional operator-facing distribution channels.
-- Versioning should be treated as daemon-repo driven: one daemon version stream, mirrored across Packagist tags, PHAR releases, and Docker tags.
+- Composer/vendor-bin is the default application install path. PHAR, Docker, and Helm are additional operator-facing distribution channels.
+- Versioning should be treated as daemon-repo driven: one daemon version stream, mirrored across Packagist tags, PHAR releases, Docker tags, and Helm chart versions.
 - Keep this file brief. Use `README.md` for fuller packaging and versioning context.
 
 ## Load testing
