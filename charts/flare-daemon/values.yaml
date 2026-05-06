@@ -1,0 +1,86 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/spatie/flare-daemon
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+args: []
+
+listen:
+  host: 0.0.0.0
+  port: 8787
+
+env:
+  FLARE_DAEMON_UPSTREAM: https://ingress.flareapp.io
+  FLARE_DAEMON_BUFFER_BYTES: "262144"
+  FLARE_DAEMON_FLUSH_AFTER_SECONDS: "10"
+  FLARE_DAEMON_UPSTREAM_TIMEOUT_SECONDS: "10"
+
+extraEnv: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+automountServiceAccountToken: false
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsGroup: 10001
+  runAsNonRoot: true
+  runAsUser: 10001
+
+service:
+  type: ClusterIP
+  port: 8787
+  targetPort: http
+  annotations: {}
+  internalTrafficPolicy: Local
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+terminationGracePeriodSeconds: 30
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""

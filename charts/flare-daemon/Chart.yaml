@@ -1,0 +1,18 @@
+apiVersion: v2
+name: flare-daemon
+description: A Helm chart for running Flare Daemon as a Kubernetes DaemonSet
+type: application
+version: 0.1.0
+appVersion: "dev"
+home: https://github.com/spatie/flare-daemon
+sources:
+  - https://github.com/spatie/flare-daemon
+keywords:
+  - flare
+  - spatie
+  - error-tracking
+  - performance-monitoring
+  - daemon
+maintainers:
+  - name: Spatie
+    url: https://spatie.be

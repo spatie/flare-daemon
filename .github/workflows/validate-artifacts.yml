@@ -6,22 +6,26 @@ on:
       - 'bin/**'
       - 'build.sh'
       - 'box.json.dist'
+      - 'charts/**'
       - 'composer.json'
       - 'Dockerfile'
       - 'docker/**'
       - 'src/**'
       - 'tests/**'
+      - '.github/workflows/publish-helm-chart.yml'
       - '.github/workflows/validate-artifacts.yml'
   pull_request:
     paths:
       - 'bin/**'
       - 'build.sh'
       - 'box.json.dist'
+      - 'charts/**'
       - 'composer.json'
       - 'Dockerfile'
       - 'docker/**'
       - 'src/**'
       - 'tests/**'
+      - '.github/workflows/publish-helm-chart.yml'
       - '.github/workflows/validate-artifacts.yml'
 
 jobs:
@@ -62,3 +66,17 @@ jobs:
       - uses: actions/checkout@v6
 
       - run: bash tests/smoke/docker.sh
+
+  helm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: azure/setup-helm@v4
+
+      - run: helm lint charts/flare-daemon
+
+      - run: helm template flare-daemon charts/flare-daemon
+
+      - run: helm package charts/flare-daemon --destination dist --version 1.2.3 --app-version v1.2.3

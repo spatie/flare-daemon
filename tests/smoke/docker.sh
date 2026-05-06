@@ -32,6 +32,13 @@ done
 
 curl -fsS "http://127.0.0.1:${PORT}/health" | grep '"status":"ok"'
 
+CONTAINER_UID="$(docker exec "${CID}" id -u)"
+
+if [[ "${CONTAINER_UID}" == "0" ]]; then
+    echo "Expected container to run as a non-root user" >&2
+    exit 1
+fi
+
 curl -fsS \
     -H 'Content-Type: application/json' \
     -H 'X-API-Token: smoke-test-key' \

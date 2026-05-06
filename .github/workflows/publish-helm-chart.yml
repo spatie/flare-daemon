@@ -1,0 +1,77 @@
+name: Publish Helm Chart
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      chart_version:
+        description: 'Chart version to publish, without a leading v'
+        required: true
+      app_version:
+        description: 'Daemon image version the chart deploys, for example v1.2.3'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Compute versions
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CHART_VERSION_INPUT: ${{ inputs.chart_version }}
+          APP_VERSION_INPUT: ${{ inputs.app_version }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            chart_version="${RELEASE_TAG#v}"
+            app_version="${RELEASE_TAG}"
+          else
+            chart_version="${CHART_VERSION_INPUT#v}"
+            app_version="${APP_VERSION_INPUT}"
+          fi
+
+          if [ -z "${chart_version}" ]; then
+            echo "Chart version is required" >&2
+            exit 1
+          fi
+
+          if [ -z "${app_version}" ]; then
+            echo "App version is required" >&2
+            exit 1
+          fi
+
+          {
+            echo "chart_version=${chart_version}"
+            echo "app_version=${app_version}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Login to GitHub Container Registry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GITHUB_TOKEN}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Lint chart
+        run: helm lint charts/flare-daemon
+
+      - name: Package chart
+        run: |
+          helm package charts/flare-daemon \
+            --destination dist \
+            --version "${{ steps.version.outputs.chart_version }}" \
+            --app-version "${{ steps.version.outputs.app_version }}"
+
+      - name: Push chart
+        run: helm push "dist/flare-daemon-${{ steps.version.outputs.chart_version }}.tgz" oci://ghcr.io/spatie/charts
