@@ -37,7 +37,7 @@ jobs:
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
             chart_version="${RELEASE_TAG#v}"
-            app_version="${RELEASE_TAG}"
+            app_version="v${chart_version}"
           else
             chart_version="${CHART_VERSION_INPUT#v}"
             app_version="${APP_VERSION_INPUT}"
@@ -51,6 +51,10 @@ jobs:
           if [ -z "${app_version}" ]; then
             echo "App version is required" >&2
             exit 1
+          fi
+
+          if [ "${app_version#v}" = "${app_version}" ]; then
+            app_version="v${app_version}"
           fi
 
           {
