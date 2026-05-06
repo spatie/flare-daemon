@@ -12,6 +12,7 @@ on:
       - 'docker/**'
       - 'src/**'
       - 'tests/**'
+      - '.github/workflows/publish-helm-chart.yml'
       - '.github/workflows/validate-artifacts.yml'
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - 'docker/**'
       - 'src/**'
       - 'tests/**'
+      - '.github/workflows/publish-helm-chart.yml'
       - '.github/workflows/validate-artifacts.yml'
 
 jobs:
@@ -76,3 +78,5 @@ jobs:
       - run: helm lint charts/flare-daemon
 
       - run: helm template flare-daemon charts/flare-daemon
+
+      - run: helm package charts/flare-daemon --destination dist --version 1.2.3 --app-version v1.2.3

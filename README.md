@@ -75,7 +75,19 @@ docker run -d --name flare-daemon -p 8787:8787 ghcr.io/spatie/flare-daemon
 The Helm chart runs Flare Daemon as a Kubernetes DaemonSet and exposes it through an in-cluster Service:
 
 ```bash
-helm install flare-daemon ./charts/flare-daemon --namespace flare-daemon --create-namespace
+helm install flare-daemon \
+    oci://ghcr.io/spatie/charts/flare-daemon \
+    --version 1.2.3 \
+    --namespace flare-daemon \
+    --create-namespace
+```
+
+To install the chart directly from a local checkout of this repository:
+
+```bash
+helm install flare-daemon ./charts/flare-daemon \
+    --namespace flare-daemon \
+    --create-namespace
 ```
 
 Applications can send daemon traffic to:
@@ -83,6 +95,8 @@ Applications can send daemon traffic to:
 ```text
 http://flare-daemon.flare-daemon.svc.cluster.local:8787
 ```
+
+The chart runs one daemon pod per Kubernetes node and defaults to `service.internalTrafficPolicy=Local`, so application pods use the daemon endpoint on their own node. If a node-local daemon is unavailable, Flare clients should fall back to direct delivery.
 
 ### PHAR
 

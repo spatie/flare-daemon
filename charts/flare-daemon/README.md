@@ -5,7 +5,19 @@ This chart installs Flare Daemon as a Kubernetes DaemonSet and exposes it throug
 ## Install
 
 ```bash
-helm install flare-daemon ./charts/flare-daemon --namespace flare-daemon --create-namespace
+helm install flare-daemon \
+    oci://ghcr.io/spatie/charts/flare-daemon \
+    --version 1.2.3 \
+    --namespace flare-daemon \
+    --create-namespace
+```
+
+To install the chart directly from a local checkout of this repository:
+
+```bash
+helm install flare-daemon ./charts/flare-daemon \
+    --namespace flare-daemon \
+    --create-namespace
 ```
 
 ## Configure Applications
