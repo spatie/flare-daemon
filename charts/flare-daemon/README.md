@@ -39,6 +39,9 @@ image:
 args:
   - --verbose
 
+listen:
+  port: 8787
+
 env:
   FLARE_DAEMON_UPSTREAM: https://ingress.flareapp.io
   FLARE_DAEMON_BUFFER_BYTES: "262144"
@@ -60,7 +63,8 @@ resources:
 | `image.repository` | `ghcr.io/spatie/flare-daemon` | Container image repository |
 | `image.tag` | `Chart.appVersion` | Container image tag |
 | `args` | `[]` | Extra daemon command arguments such as `--verbose` |
-| `env.FLARE_DAEMON_LISTEN` | `0.0.0.0:8787` | Listen address inside the container |
+| `listen.host` | `0.0.0.0` | Listen host inside the container |
+| `listen.port` | `8787` | Listen port used by `FLARE_DAEMON_LISTEN`, the named container port, probes, and Service target port |
 | `env.FLARE_DAEMON_UPSTREAM` | `https://ingress.flareapp.io` | Upstream Flare ingress URL |
 | `env.FLARE_DAEMON_BUFFER_BYTES` | `"262144"` | Buffer size threshold |
 | `env.FLARE_DAEMON_FLUSH_AFTER_SECONDS` | `"10"` | Maintenance flush age threshold |

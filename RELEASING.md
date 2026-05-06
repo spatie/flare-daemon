@@ -29,5 +29,5 @@ The Helm chart workflow can also be run manually to retry publishing or publish 
 
 - Confirm the GitHub release contains `daemon.phar` and `daemon.phar.sha256`
 - Pull `ghcr.io/spatie/flare-daemon:vX.Y.Z`
-- Pull `oci://ghcr.io/spatie/charts/flare-daemon --version X.Y.Z`
+- `helm pull oci://ghcr.io/spatie/charts/flare-daemon --version X.Y.Z`
 - Run the image and confirm `GET /health` returns `{"status":"ok"}`

@@ -10,8 +10,11 @@ imagePullSecrets: []
 
 args: []
 
+listen:
+  host: 0.0.0.0
+  port: 8787
+
 env:
-  FLARE_DAEMON_LISTEN: 0.0.0.0:8787
   FLARE_DAEMON_UPSTREAM: https://ingress.flareapp.io
   FLARE_DAEMON_BUFFER_BYTES: "262144"
   FLARE_DAEMON_FLUSH_AFTER_SECONDS: "10"
@@ -29,7 +32,9 @@ automountServiceAccountToken: false
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   allowPrivilegeEscalation: false
@@ -37,6 +42,9 @@ securityContext:
     drop:
       - ALL
   readOnlyRootFilesystem: true
+  runAsGroup: 10001
+  runAsNonRoot: true
+  runAsUser: 10001
 
 service:
   type: ClusterIP
