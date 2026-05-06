@@ -1,0 +1,7 @@
+Flare Daemon is running as a DaemonSet.
+
+In-cluster daemon URL:
+  http://{{ include "flare-daemon.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+Health endpoint:
+  http://{{ include "flare-daemon.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/health
