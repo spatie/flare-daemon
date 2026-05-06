@@ -70,6 +70,20 @@ Client packages should depend on compatible daemon versions, but should not own 
 docker run -d --name flare-daemon -p 8787:8787 ghcr.io/spatie/flare-daemon
 ```
 
+### Helm
+
+The Helm chart runs Flare Daemon as a Kubernetes DaemonSet and exposes it through an in-cluster Service:
+
+```bash
+helm install flare-daemon ./charts/flare-daemon --namespace flare-daemon --create-namespace
+```
+
+Applications can send daemon traffic to:
+
+```text
+http://flare-daemon.flare-daemon.svc.cluster.local:8787
+```
+
 ### PHAR
 
 ```bash
