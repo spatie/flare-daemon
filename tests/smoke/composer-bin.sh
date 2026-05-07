@@ -30,6 +30,7 @@ cat >"${WORK_DIR}/composer.json" <<JSON
         }
     ],
     "require": {
+        "psr/http-message": "^2.0",
         "spatie/flare-daemon": "*"
     },
     "minimum-stability": "dev",
@@ -38,6 +39,11 @@ cat >"${WORK_DIR}/composer.json" <<JSON
 JSON
 
 composer install --working-dir="${WORK_DIR}" --no-interaction --prefer-dist >/dev/null
+
+if composer show --working-dir="${WORK_DIR}" react/http >/dev/null 2>&1; then
+    echo "react/http should not be installed in the consuming project" >&2
+    exit 1
+fi
 
 FLARE_DAEMON_LISTEN="127.0.0.1:${PORT}" php "${WORK_DIR}/vendor/bin/flare-daemon" --test >"${WORK_DIR}/daemon.log" 2>&1 &
 PID=$!

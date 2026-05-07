@@ -1,0 +1,27 @@
+{
+    "name": "spatie/flare-daemon-runtime",
+    "description": "Runtime dependencies for the Flare daemon PHAR",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "composer-runtime-api": "^2.2",
+        "php": "^8.2",
+        "ext-zlib": "*",
+        "psr/http-message": "^1.1|^2.0",
+        "react/event-loop": "^1.5",
+        "react/http": "^1.11",
+        "react/promise": "^3.2",
+        "react/socket": "^1.16"
+    },
+    "autoload": {
+        "psr-4": {
+            "Spatie\\FlareDaemon\\": "../src"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "vendor-dir": "../vendor"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

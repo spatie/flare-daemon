@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/flare-daemon-build.XXXXXX")"
 BOX_CACHE_DIR="${ROOT_DIR}/.box/bin"
 BOX_PHAR="${BOX_CACHE_DIR}/box.phar"
-OUTPUT_PHAR="${ROOT_DIR}/daemon.phar"
+OUTPUT_PHAR="${ROOT_DIR}/build/daemon.phar"
 BOX_VERSION="${BOX_VERSION:-4.6.2}"
 
 cleanup() {
@@ -36,9 +36,8 @@ trap cleanup EXIT
     cd "${ROOT_DIR}"
     tar \
         --exclude='./.box' \
-        --exclude='./.build' \
+        --exclude='./build' \
         --exclude='./.git' \
-        --exclude='./daemon.phar' \
         --exclude='./vendor' \
         -cf - .
 ) | (
@@ -57,8 +56,9 @@ fi
 export COMPOSER_ROOT_VERSION="${COMPOSER_BUILD_VERSION}"
 
 composer install \
-    --working-dir="${BUILD_DIR}" \
+    --working-dir="${BUILD_DIR}/runtime" \
     --no-dev \
+    --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
@@ -68,6 +68,8 @@ ensure_box
     cd "${BUILD_DIR}"
     "${BOX_CMD[@]}" compile -c box.json.dist
 )
+
+mkdir -p "$(dirname "${OUTPUT_PHAR}")"
 
 cp "${BUILD_DIR}/daemon.phar" "${OUTPUT_PHAR}"
 

@@ -35,8 +35,13 @@ jobs:
           FLARE_DAEMON_VERSION: ${{ steps.version.outputs.version }}
         run: bash tests/smoke/phar.sh
 
+      - name: Verify Composer PHAR is current
+        run: git diff --exit-code -- build/daemon.phar
+
       - name: Generate checksum
-        run: shasum -a 256 daemon.phar > daemon.phar.sha256
+        run: |
+          cp build/daemon.phar daemon.phar
+          shasum -a 256 daemon.phar > daemon.phar.sha256
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

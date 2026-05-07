@@ -16,7 +16,7 @@ RUN apk add --no-cache curl \
     && adduser -S -D -H -h /app -s /sbin/nologin -u 10001 -G flare flare
 
 WORKDIR /app
-COPY --from=build /app/daemon.phar /app/daemon.phar
+COPY --from=build /app/build/daemon.phar /app/daemon.phar
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 

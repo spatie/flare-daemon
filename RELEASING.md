@@ -6,10 +6,15 @@
 composer test
 composer analyse
 helm lint charts/flare-daemon
+bash build.sh
 bash tests/smoke/phar.sh
 bash tests/smoke/composer-bin.sh
 bash tests/smoke/docker.sh
 ```
+
+The Composer vendor binary runs the committed `build/daemon.phar`. If daemon source or runtime dependencies changed,
+run `bash build.sh` and include the updated `build/daemon.phar` in the release commit before tagging.
+The PHAR is built from `runtime/composer.json`; update `runtime/composer.lock` when changing daemon runtime dependencies.
 
 ## Publish a release
 
@@ -18,7 +23,7 @@ bash tests/smoke/docker.sh
 
 Publishing the release triggers:
 
-- `Publish Release`, which uploads `daemon.phar` and `daemon.phar.sha256` to the GitHub release
+- `Publish Release`, which uploads `build/daemon.phar` as `daemon.phar` and `daemon.phar.sha256` to the GitHub release
 - `Publish Docker Image`, which pushes `ghcr.io/spatie/flare-daemon:vX.Y.Z`, `vX.Y`, `vX`, and `latest` to GitHub Container Registry
 - `Publish Helm Chart`, which pushes `oci://ghcr.io/spatie/charts/flare-daemon` with chart version `X.Y.Z` and app version `vX.Y.Z`
 - `Update Changelog`, which writes the release notes into `CHANGELOG.md`

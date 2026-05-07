@@ -44,6 +44,8 @@ jobs:
 
       - run: bash tests/smoke/phar.sh
 
+      - run: git diff --exit-code -- build/daemon.phar
+
   composer-bin:
     runs-on: ubuntu-latest
 

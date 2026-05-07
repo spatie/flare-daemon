@@ -46,11 +46,11 @@ Runtime activation remains explicit. Installation and onboarding docs may steer 
 
 ### Distribution channels
 
-Composer is the default application install path. The daemon should expose a stable vendor binary for local execution, process managers, and framework wrappers.
+Composer is the default application install path. The daemon exposes a stable vendor binary for local execution, process managers, and framework wrappers.
 
 PHAR, Docker, and Helm are additional operator-facing distribution channels:
 
-- **Composer / vendor bin** — the default path for app installs
+- **Composer / vendor bin** — the default path for app installs, backed by the bundled PHAR
 - **PHAR** — a standalone artifact for operators who want a single-file deployment
 - **Docker** — a container artifact for containerized environments
 - **Helm** — a Kubernetes DaemonSet chart published as an OCI chart to GitHub Container Registry
@@ -64,6 +64,21 @@ The daemon should have one canonical version stream owned by this repository's G
 Client packages should depend on compatible daemon versions, but should not own the daemon's version number themselves. The daemon release cadence and operator-facing artifacts are defined at the daemon package level.
 
 ## Installation
+
+### Composer / vendor bin
+
+Flare's PHP client packages install the daemon package by default so applications can run the daemon from Composer's
+vendor binary directory:
+
+```bash
+php vendor/bin/flare-daemon
+```
+
+The Composer package ships a bundled PHAR for this binary. Its internal ReactPHP runtime is isolated from the
+application's Composer dependency graph.
+
+When working from this repository, use `php src/daemon.php` for source development. The Composer binary expects the
+bundled `build/daemon.phar` to be present.
 
 ### Docker
 
@@ -102,7 +117,7 @@ The chart runs one daemon pod per Kubernetes node and defaults to `service.inter
 ### PHAR
 
 ```bash
-php daemon.phar
+php build/daemon.phar
 ```
 
 ## Usage
@@ -112,7 +127,7 @@ php daemon.phar
 By default the daemon logs lifecycle events (started, stopped) and a periodic summary of forwarded payloads. Pass `--verbose` (or `-v`) to also log every individual payload at `DEBUG` level:
 
 ```bash
-php daemon.phar --verbose
+php build/daemon.phar --verbose
 ```
 
 ```bash
@@ -149,7 +164,12 @@ The script checks `/health`, sends a normal error to `/v1/errors`, and polls `/s
 bash build.sh
 ```
 
-This downloads [Box](https://github.com/box-project/box) (if needed) and compiles the PHAR.
+This downloads [Box](https://github.com/box-project/box) (if needed) and compiles `build/daemon.phar`, which is used by
+the Composer vendor binary, Docker image, and GitHub release asset.
+
+The PHAR is built from `runtime/composer.json`, a small build-only Composer project that contains the daemon's ReactPHP
+runtime dependencies. The root `composer.json` stays dependency-light so installing `spatie/flare-daemon` in an
+application does not constrain the application's PSR-7 or ReactPHP dependency graph.
 
 Maintainers can use [`RELEASING.md`](RELEASING.md) for the GitHub-release-driven artifact publishing process.
 

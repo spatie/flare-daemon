@@ -3,28 +3,11 @@
 
 declare(strict_types=1);
 
-$autoloadPath = $_composer_autoload_path ?? null;
+$pharPath = dirname(__DIR__).'/build/daemon.phar';
 
-if (! is_string($autoloadPath) || ! is_file($autoloadPath)) {
-    $candidates = [
-        dirname(__DIR__).'/vendor/autoload.php',
-        __DIR__.'/../../../autoload.php',
-    ];
-
-    foreach ($candidates as $candidate) {
-        if (is_file($candidate)) {
-            $autoloadPath = $candidate;
-
-            break;
-        }
-    }
-}
-
-if (! is_string($autoloadPath) || ! is_file($autoloadPath)) {
-    fwrite(STDERR, "Unable to locate Composer autoload.php\n");
+if (! is_file($pharPath)) {
+    fwrite(STDERR, "Missing build/daemon.phar. Run `bash build.sh` from the flare-daemon repository.\n");
     exit(1);
 }
 
-require $autoloadPath;
-
-require __DIR__.'/../src/run.php';
+require $pharPath;
