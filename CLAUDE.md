@@ -27,6 +27,11 @@ curl -s http://127.0.0.1:8787/health   # should return {"status":"ok"}
 kill %1
 ```
 
+`build/daemon.phar` is a committed Composer-bin artifact. Keep the Box config deterministic
+(stable alias, stable timestamp, sorted file discovery), because CI rebuilds the PHAR and checks
+`git diff --exit-code -- build/daemon.phar`. `tests/smoke/phar.sh` reuses the version embedded in
+the committed PHAR unless `FLARE_DAEMON_VERSION` is set explicitly by a release workflow.
+
 ## Smoke-testing with a real API key
 
 Start the daemon (with `--verbose` for full per-payload logs), then run `tests/test.sh` with your Flare API key:

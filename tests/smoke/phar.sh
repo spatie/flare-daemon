@@ -17,7 +17,11 @@ trap cleanup EXIT
 
 cd "${REPO_ROOT}"
 
-FLARE_DAEMON_VERSION="${FLARE_DAEMON_VERSION:-1.2.3}" bash build.sh >/dev/null
+if [[ -z "${FLARE_DAEMON_VERSION:-}" && -f build/daemon.phar ]]; then
+    FLARE_DAEMON_VERSION="$(php -r 'echo trim((new Phar("build/daemon.phar"))["version.txt"]->getContent());')"
+fi
+
+FLARE_DAEMON_VERSION="${FLARE_DAEMON_VERSION:-dev}" bash build.sh >/dev/null
 
 FLARE_DAEMON_LISTEN="127.0.0.1:${PORT}" php build/daemon.phar --test >/tmp/flare-daemon-phar.log 2>&1 &
 PID=$!

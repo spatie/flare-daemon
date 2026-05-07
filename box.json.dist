@@ -1,10 +1,16 @@
 {
     "output": "daemon.phar",
+    "alias": "flare-daemon.phar",
     "timestamp": "2025-01-01T00:00:00+00:00",
     "dump-autoload": false,
-    "directories": [
-        "src",
-        "vendor"
+    "finder": [
+        {
+            "in": [
+                "src",
+                "vendor"
+            ],
+            "sortByName": true
+        }
     ],
     "files": [
         "version.txt"
