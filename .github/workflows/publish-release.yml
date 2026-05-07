@@ -35,9 +35,6 @@ jobs:
           FLARE_DAEMON_VERSION: ${{ steps.version.outputs.version }}
         run: bash tests/smoke/phar.sh
 
-      - name: Verify Composer PHAR is current
-        run: git diff --exit-code -- build/daemon.phar
-
       - name: Generate checksum
         run: |
           cp build/daemon.phar daemon.phar

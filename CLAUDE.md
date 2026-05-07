@@ -27,10 +27,10 @@ curl -s http://127.0.0.1:8787/health   # should return {"status":"ok"}
 kill %1
 ```
 
-`build/daemon.phar` is a committed Composer-bin artifact. Keep the Box config deterministic
-(stable alias, stable timestamp, sorted file discovery), because CI rebuilds the PHAR and checks
-`git diff --exit-code -- build/daemon.phar`. `tests/smoke/phar.sh` reuses the version embedded in
-the committed PHAR unless `FLARE_DAEMON_VERSION` is set explicitly by a release workflow.
+`build/daemon.phar` is a committed Composer-bin artifact. CI rebuilds and smoke-tests the PHAR,
+but does not require byte-for-byte equality because PHAR output can vary between PHP/Composer
+build environments. `tests/smoke/phar.sh` reuses the version embedded in the committed PHAR unless
+`FLARE_DAEMON_VERSION` is set explicitly by a release workflow.
 
 ## Smoke-testing with a real API key
 
