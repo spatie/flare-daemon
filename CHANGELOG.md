@@ -2,6 +2,10 @@
 
 All notable changes to `flare-daemon` will be documented in this file.
 
+## v0.2.0 - 2026-05-07
+
+Release the PHAR-backed Composer bin and remove daemon runtime dependencies from consuming projects.
+
 ## 0.1.0 - 2026-05-06
 
 ### What's Changed
