@@ -2,6 +2,17 @@
 
 All notable changes to `flare-daemon` will be documented in this file.
 
+## 0.2.1 - 2026-05-12
+
+### What's Changed
+
+Add configurable PHP memory limit for Docker and Helm deployments.
+
+- Docker entrypoint now supports `PHP_MEMORY_LIMIT`, defaulting to `128M`.
+- Helm chart exposes `phpMemoryLimit` and wires it to `PHP_MEMORY_LIMIT`.
+
+**Full Changelog**: https://github.com/spatie/flare-daemon/compare/v0.2.0...0.2.1
+
 ## v0.2.0 - 2026-05-07
 
 Release the PHAR-backed Composer bin and remove daemon runtime dependencies from consuming projects.
