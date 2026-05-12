@@ -44,6 +44,8 @@ spec:
           env:
             - name: FLARE_DAEMON_LISTEN
               value: {{ printf "%s:%v" .Values.listen.host .Values.listen.port | quote }}
+            - name: PHP_MEMORY_LIMIT
+              value: {{ .Values.phpMemoryLimit | quote }}
             {{- range $name, $value := .Values.env }}
             - name: {{ $name }}
               value: {{ $value | quote }}

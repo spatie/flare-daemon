@@ -10,7 +10,7 @@ shutdown() {
 
 trap shutdown TERM INT
 
-php /app/daemon.phar "$@" &
+php -d memory_limit="${PHP_MEMORY_LIMIT:-128M}" /app/daemon.phar "$@" &
 child=$!
 
 wait "$child"

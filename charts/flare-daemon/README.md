@@ -39,6 +39,8 @@ image:
 args:
   - --verbose
 
+phpMemoryLimit: 192M
+
 listen:
   port: 8787
 
@@ -63,6 +65,7 @@ resources:
 | `image.repository` | `ghcr.io/spatie/flare-daemon` | Container image repository |
 | `image.tag` | `Chart.appVersion` | Container image tag |
 | `args` | `[]` | Extra daemon command arguments such as `--verbose` |
+| `phpMemoryLimit` | `128M` | PHP CLI memory limit passed to the daemon process through `PHP_MEMORY_LIMIT` |
 | `listen.host` | `0.0.0.0` | Listen host inside the container |
 | `listen.port` | `8787` | Listen port used by `FLARE_DAEMON_LISTEN`, the named container port, probes, and Service target port |
 | `env.FLARE_DAEMON_UPSTREAM` | `https://ingress.flareapp.io` | Upstream Flare ingress URL |
