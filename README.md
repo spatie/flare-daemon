@@ -1,4 +1,4 @@
-# Flare Daemon
+# A daemon to report error reports, performances traces and logs to Flare
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/spatie/flare-daemon.svg?style=flat-square)](https://packagist.org/packages/spatie/flare-daemon)
 [![Tests](https://img.shields.io/github/actions/workflow/status/spatie/flare-daemon/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/spatie/flare-daemon/actions/workflows/run-tests.yml)
