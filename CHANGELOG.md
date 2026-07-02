@@ -2,6 +2,10 @@
 
 All notable changes to `flare-daemon` will be documented in this file.
 
+## 0.3.0 - 2026-07-02
+
+Support PHP 8.1 and up. The daemon, Docker image, Composer package, and Helm chart now install and run on PHP 8.1 and higher (previously 8.2 and higher). The daemon source was already compatible, so this lowers the declared floor and rebuilds the PHAR so its embedded platform check accepts 8.1.
+
 ## 0.2.1 - 2026-05-12
 
 ### What's Changed
