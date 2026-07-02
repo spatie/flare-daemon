@@ -7,7 +7,7 @@ COPY . .
 RUN composer check-platform-reqs --no-dev
 RUN FLARE_DAEMON_VERSION=${FLARE_DAEMON_VERSION} bash ./build.sh
 
-FROM php:8.2-cli-alpine
+FROM php:8.1-cli-alpine
 
 ARG FLARE_DAEMON_VERSION=dev
 
