@@ -147,6 +147,16 @@ All configuration is done through environment variables:
 | `FLARE_DAEMON_UPSTREAM_TIMEOUT_SECONDS` | `10` | Timeout in seconds for upstream requests |
 | `FLARE_COMPOSER_LOCK` | _(none)_ | Path to `composer.lock` — daemon stops when the file changes |
 
+### Upstream failures and delivery status
+
+An upstream `403` pauses only the affected API key and telemetry type for 60 seconds. The next payload after the cooldown tries upstream again, without restarting the daemon. A `403` does not prove that the API key is invalid: a proxy or firewall may have rejected the request. Repeated rejections repeat the cooldown. `429` responses continue to honor `Retry-After`.
+
+Normal requests still return `202` while paused, and their payloads are dropped. Failed payloads are not replayed. The daemon logs a recurring warning with dropped counts while traffic continues during a pause. Diagnostic requests (`X-Flare-Test: 1`) bypass the pause and return the upstream response.
+
+`/health` reports process liveness, not upstream delivery. Monitor `/status` for `degraded: true`, which means at least one telemetry stream is currently paused. Each stream exposes `paused`, `retry_after`, and `pause_reason`. The legacy `last_429_reason` field remains as an alias. Absence of a pause does not prove delivery; inspect forwarding counters and logs as well.
+
+Keys in `/status` and `api_key` log fields are now SHA-256 identifiers (`sha256:` followed by the full hash), rather than credentials. Update any tooling that indexes `/status.keys` using a raw API key. Compute the SHA-256 hash of the key locally to correlate it with a log entry.
+
 ### Smoke-testing with a real API key
 
 Start the daemon, then use `tests/test.sh` to send a real error payload through the full buffering/flushing path:
@@ -210,14 +220,3 @@ Please review [our security policy](../../security/policy) on how to report secu
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
-
-### Upstream failures and delivery status
-
-An upstream `403` pauses only the affected API key and telemetry type for 60 seconds. The next payload after the cooldown tries upstream again, without restarting the daemon. A `403` does not prove that the API key is invalid: a proxy or firewall may have rejected the request. Repeated rejections repeat the cooldown. `429` responses continue to honor `Retry-After`.
-
-Normal requests still return `202` while paused, and their payloads are dropped. Failed payloads are not replayed. The daemon logs a recurring warning with dropped counts while traffic continues during a pause. Diagnostic requests (`X-Flare-Test: 1`) bypass the pause and return the upstream response.
-
-`/health` reports process liveness, not upstream delivery. Monitor `/status` for `degraded: true`, which means at least one telemetry stream is currently paused. Each stream exposes `paused`, `retry_after`, and `pause_reason`. The legacy `last_429_reason` field remains as an alias. Absence of a pause does not prove delivery; inspect forwarding counters and logs as well.
-
-Keys in `/status` and `api_key` log fields are now SHA-256 identifiers (`sha256:` followed by the full hash), rather than credentials. Update any tooling that indexes `/status.keys` using a raw API key. Compute the SHA-256 hash of the key locally to correlate it with a log entry.
