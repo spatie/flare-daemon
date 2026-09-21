@@ -35,6 +35,9 @@ class Ingest
     /** @var array<string, int> */
     protected array $forwardedSinceLastSummary = [];
 
+    /** @var array<string, int> */
+    protected array $droppedSinceLastSummary = [];
+
     protected float $lastSummaryAt;
 
     public function __construct(
@@ -75,6 +78,8 @@ class Ingest
         $now = microtime(true);
 
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
+            $this->droppedSinceLastSummary[$type] = ($this->droppedSinceLastSummary[$type] ?? 0) + 1;
+
             return;
         }
 
@@ -147,7 +152,7 @@ class Ingest
         }
 
         $this->shuttingDown = true;
-        $this->logForwardedSummary();
+        $this->logDeliverySummary();
 
         if ($this->maintenanceTimer !== null) {
             $this->loop->cancelTimer($this->maintenanceTimer);
@@ -165,11 +170,12 @@ class Ingest
 
     /**
      * @return array{
+     *     degraded: bool,
      *     total_received: int,
      *     total_buffered: int,
      *     total_forwarded: int,
      *     total_dropped: int,
-     *     keys: array<string, array<string, array{buffered: int, paused: bool, retry_after: string|null, last_429_reason: string|null}>>|object
+     *     keys: array<string, array<string, array{buffered: int, paused: bool, retry_after: string|null, last_429_reason: string|null, pause_reason: string|null}>>|object
      * }
      */
     public function status(): array
@@ -181,6 +187,7 @@ class Ingest
         ]);
 
         $status = [
+            'degraded' => false,
             'total_received' => $this->totalReceived,
             'total_buffered' => $this->totalBuffered,
             'total_forwarded' => $this->totalForwarded,
@@ -191,11 +198,16 @@ class Ingest
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
-                $status['keys'][$apiKey][$type] = [
+                $paused = $this->quotaState->isPaused($apiKey, $type, $now);
+                $status['degraded'] = $status['degraded'] || $paused;
+                $reason = $this->quotaState->reason($apiKey, $type);
+
+                $status['keys'][Output::apiKeyId($apiKey)][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
-                    'paused' => $this->quotaState->isPaused($apiKey, $type, $now),
+                    'paused' => $paused,
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),
-                    'last_429_reason' => $this->quotaState->reason($apiKey, $type),
+                    'last_429_reason' => $reason,
+                    'pause_reason' => $reason,
                 ];
             }
         }
@@ -244,7 +256,7 @@ class Ingest
         $now = microtime(true);
 
         foreach ($this->quotaState->resumeExpired($now) as $resumed) {
-            $this->output->info('quota pause resumed', $resumed);
+            $this->output->info('upstream pause expired; delivery can resume', $resumed);
         }
 
         foreach ($this->buffers as $apiKey => $typedBuffers) {
@@ -261,8 +273,8 @@ class Ingest
             }
         }
 
-        if ($this->forwardedSinceLastSummary !== [] && $now - $this->lastSummaryAt >= $this->summaryIntervalSeconds) {
-            $this->logForwardedSummary();
+        if ($now - $this->lastSummaryAt >= $this->summaryIntervalSeconds) {
+            $this->logDeliverySummary();
             $this->lastSummaryAt = $now;
         }
 
@@ -337,7 +349,7 @@ class Ingest
         $body = $response['body'];
 
         if ($status === 429) {
-            $reason = Upstream::reasonFromResponseBody($body, $status);
+            $reason = Upstream::summarizeBody(str_replace($apiKey, Output::apiKeyId($apiKey), Upstream::reasonFromResponseBody($body, $status)));
             $retryAfter = $this->parseRetryAfter($response['headers'], microtime(true));
 
             $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
@@ -348,11 +360,14 @@ class Ingest
                 'retry_after' => $retryAfter === null ? null : gmdate(DATE_ATOM, (int) $retryAfter),
             ]);
         } elseif ($status === 403) {
-            $reason = Upstream::reasonFromResponseBody($body, $status);
-            $this->quotaState->pauseAll($apiKey, $reason);
-            $this->output->error('upstream rejected api key', [
+            $retryAfter = microtime(true) + $this->defaultRetryAfterSeconds;
+            $this->quotaState->pause($apiKey, $type, $retryAfter, 'HTTP 403');
+            $this->output->error('upstream request forbidden; delivery temporarily paused', [
                 'api_key' => $apiKey,
-                'reason' => $reason,
+                'type' => $type,
+                'status' => $status,
+                'cf_ray' => $this->header($response['headers'], 'cf-ray'),
+                'retry_after' => gmdate(DATE_ATOM, (int) $retryAfter),
             ]);
         } elseif ($status === 422) {
             $this->output->warning('upstream validation failed', [
@@ -417,7 +432,7 @@ class Ingest
      */
     protected function parseRetryAfter(array $headers, float $now): ?float
     {
-        $header = $headers['Retry-After'][0] ?? $headers['retry-after'][0] ?? null;
+        $header = $this->header($headers, 'retry-after');
 
         if ($header === null) {
             return $now + $this->defaultRetryAfterSeconds;
@@ -432,8 +447,25 @@ class Ingest
         return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
     }
 
-    protected function logForwardedSummary(): void
+    /** @param array<string, array<int, string>> $headers */
+    protected function header(array $headers, string $name): ?string
     {
+        foreach ($headers as $header => $values) {
+            if (strtolower($header) === $name) {
+                return $values[0] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    protected function logDeliverySummary(): void
+    {
+        if ($this->droppedSinceLastSummary !== []) {
+            $this->output->warning('payloads dropped while upstream delivery is paused', $this->droppedSinceLastSummary);
+            $this->droppedSinceLastSummary = [];
+        }
+
         if ($this->forwardedSinceLastSummary === []) {
             return;
         }

@@ -73,23 +73,31 @@ class Output
         );
     }
 
+    public static function apiKeyId(string $apiKey): string
+    {
+        return 'sha256:'.hash('sha256', $apiKey);
+    }
+
     /**
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
-    protected function normalize(array $context): array
+    protected function normalize(array $context, ?string $apiKey = null): array
     {
+        $apiKey ??= is_string($context['api_key'] ?? null) ? $context['api_key'] : null;
         $normalized = [];
 
         foreach ($context as $key => $value) {
             $normalized[$key] = match (true) {
-                $value instanceof \Throwable => [
+                $key === 'api_key' && is_string($value) => self::apiKeyId($value),
+                $value instanceof \Throwable => $this->normalize([
                     'class' => $value::class,
                     'message' => $value->getMessage(),
-                ],
+                ], $apiKey),
+                is_string($value) && $apiKey !== null && $apiKey !== '' => str_replace($apiKey, self::apiKeyId($apiKey), $value),
                 is_scalar($value), $value === null => $value,
                 $value instanceof Stringable => (string) $value,
-                is_array($value) => $this->normalize($value),
+                is_array($value) => $this->normalize($value, $apiKey),
                 default => get_debug_type($value),
             };
         }

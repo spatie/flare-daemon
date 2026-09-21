@@ -31,3 +31,19 @@ it('always writes info messages regardless of verbose setting', function () {
     expect(stream_get_contents($stdout))->toContain('INFO')
         ->toContain('always visible');
 });
+
+it('redacts credentials in structured logs and exception messages', function () {
+    $capture = makeOutputWithCapture();
+    $apiKey = 'secret/key"with-escaping';
+
+    $capture['output']->error('upstream request failed', [
+        'api_key' => $apiKey,
+        'body' => ['message' => "Rejected {$apiKey}"],
+        'exception' => new RuntimeException("Rejected {$apiKey}"),
+    ]);
+
+    $log = readStream($capture['stderr']);
+
+    expect($log)->toContain(Output::apiKeyId($apiKey));
+    expect($log)->not->toContain('secret', 'with-escaping');
+});
