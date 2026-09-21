@@ -155,7 +155,7 @@ Normal requests still return `202` while paused, and their payloads are dropped.
 
 `/health` reports process liveness, not upstream delivery. Monitor `/status` for `degraded: true`, which means at least one telemetry stream is currently paused. Each stream exposes `paused`, `retry_after`, and `pause_reason`. The legacy `last_429_reason` field remains as an alias. Absence of a pause does not prove delivery; inspect forwarding counters and logs as well.
 
-Keys in `/status` and `api_key` log fields are now SHA-256 identifiers (`sha256:` followed by the full hash), rather than credentials. Update any tooling that indexes `/status.keys` using a raw API key. Compute the SHA-256 hash of the key locally to correlate it with a log entry.
+Keys in `/status` and `api_key` log fields show only the last eight characters, prefixed with `...` (for example, `...aB3x9K2m`). Keys with eight characters or fewer display `[redacted]`. Match the suffix against your configured key when debugging. Update tooling that indexes `/status.keys` using a raw API key. If labels collide, `/status` adds `#2`, `#3`, and so on to keep their records separate within the response. These labels are for display only and are not stable unique identifiers; authentication and internal state still use the full key.
 
 ### Smoke-testing with a real API key
 

@@ -22,6 +22,35 @@ it('exposes health and status endpoints', function () {
         ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['degraded' => false, 'total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
 });
 
+it('keeps status records separate when masked key labels collide', function () {
+    $upstream = createUpstreamFixture(fn () => new Response(403));
+    $daemon = createDaemonFixture($upstream['base_url']);
+    $firstKey = 'example-first-private-key-aB3x9K2m';
+    $secondKey = 'example-second-private-key-aB3x9K2m';
+
+    foreach ([$firstKey => 'errors', $secondKey => 'traces'] as $apiKey => $type) {
+        \React\Async\await($daemon['client']->post(
+            $daemon['daemon_url']."/v1/{$type}",
+            ['Content-Type' => 'application/json', 'X-API-Token' => $apiKey],
+            encodePayload(['message' => 'blocked']),
+        ));
+
+        waitUntil(fn () => $daemon['quota_state']->isPaused($apiKey, $type, microtime(true)));
+    }
+
+    $response = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
+    $status = json_decode((string) $response->getBody(), true);
+
+    expect((string) $response->getBody())->not->toContain($firstKey, $secondKey)
+        ->and($status['keys'])->toHaveCount(2)
+        ->and($status['keys']['...aB3x9K2m']['errors']['paused'])->toBeTrue()
+        ->and($status['keys']['...aB3x9K2m']['traces']['paused'])->toBeFalse()
+        ->and($status['keys']['...aB3x9K2m#2']['errors']['paused'])->toBeFalse()
+        ->and($status['keys']['...aB3x9K2m#2']['traces']['paused'])->toBeTrue()
+        ->and($upstream['requests'][0]['headers']['X-API-Token'][0] ?? null)->toBe($firstKey)
+        ->and($upstream['requests'][1]['headers']['X-API-Token'][0] ?? null)->toBe($secondKey);
+});
+
 it('validates incoming requests', function () {
     $upstream = createUpstreamFixture(fn () => new Response(201, ['Content-Type' => 'application/json'], '{"ok":true}'));
     $daemon = createDaemonFixture($upstream['base_url']);

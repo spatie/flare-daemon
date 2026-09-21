@@ -78,7 +78,7 @@ it('keeps temporary pause state for normal payloads while still allowing diagnos
         $daemon['daemon_url'].'/v1/errors',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-private-api-key-aB3x9K2m',
         ],
         encodePayload(['message' => 'normal']),
     ));
@@ -89,7 +89,7 @@ it('keeps temporary pause state for normal payloads while still allowing diagnos
         $daemon['daemon_url'].'/v1/errors',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-private-api-key-aB3x9K2m',
             'X-Flare-Test' => '1',
         ],
         encodePayload(['message' => 'test']),
@@ -98,14 +98,14 @@ it('keeps temporary pause state for normal payloads while still allowing diagnos
     $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
     $statusBody = json_decode((string) $statusResponse->getBody(), true);
 
-    expect((string) $statusResponse->getBody())->not->toContain('api-key')
+    expect((string) $statusResponse->getBody())->not->toContain('example-private-api-key-aB3x9K2m')
         ->and($statusBody['degraded'])->toBeTrue()
-        ->and($statusBody['keys'][Output::apiKeyId('api-key')]['errors']['pause_reason'])->toBe('HTTP 403')
+        ->and($statusBody['keys']['...aB3x9K2m']['errors']['pause_reason'])->toBe('HTTP 403')
         ->and($testResponse->getStatusCode())->toBe(403)
         ->and((string) $testResponse->getBody())->toBe('Invalid API key')
-        ->and($statusBody['keys'][Output::apiKeyId('api-key')]['errors']['paused'])->toBeTrue()
-        ->and($statusBody['keys'][Output::apiKeyId('api-key')]['traces']['paused'])->toBeFalse()
-        ->and($statusBody['keys'][Output::apiKeyId('api-key')]['logs']['paused'])->toBeFalse();
+        ->and($statusBody['keys']['...aB3x9K2m']['errors']['paused'])->toBeTrue()
+        ->and($statusBody['keys']['...aB3x9K2m']['traces']['paused'])->toBeFalse()
+        ->and($statusBody['keys']['...aB3x9K2m']['logs']['paused'])->toBeFalse();
 });
 
 it('recovers from a forbidden upstream response without pausing other telemetry', function (string $body) {

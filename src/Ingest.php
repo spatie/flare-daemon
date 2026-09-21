@@ -195,6 +195,15 @@ class Ingest
         ];
 
         foreach ($keys as $apiKey) {
+            $displayId = Output::apiKeyId($apiKey);
+            $uniqueDisplayId = $displayId;
+            $collision = 1;
+
+            while (isset($status['keys'][$uniqueDisplayId])) {
+                $collision++;
+                $uniqueDisplayId = "{$displayId}#{$collision}";
+            }
+
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
@@ -202,7 +211,7 @@ class Ingest
                 $status['degraded'] = $status['degraded'] || $paused;
                 $reason = $this->quotaState->reason($apiKey, $type);
 
-                $status['keys'][Output::apiKeyId($apiKey)][$type] = [
+                $status['keys'][$uniqueDisplayId][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
                     'paused' => $paused,
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),

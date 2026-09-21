@@ -75,7 +75,7 @@ class Output
 
     public static function apiKeyId(string $apiKey): string
     {
-        return 'sha256:'.hash('sha256', $apiKey);
+        return strlen($apiKey) > 8 ? '...'.substr($apiKey, -8) : '[redacted]';
     }
 
     /**

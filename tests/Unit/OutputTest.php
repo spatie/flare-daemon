@@ -32,9 +32,8 @@ it('always writes info messages regardless of verbose setting', function () {
         ->toContain('always visible');
 });
 
-it('redacts credentials in structured logs and exception messages', function () {
+it('redacts credentials in structured logs and exception messages', function (string $apiKey, string $identifier) {
     $capture = makeOutputWithCapture();
-    $apiKey = 'secret/key"with-escaping';
 
     $capture['output']->error('upstream request failed', [
         'api_key' => $apiKey,
@@ -44,6 +43,9 @@ it('redacts credentials in structured logs and exception messages', function () 
 
     $log = readStream($capture['stderr']);
 
-    expect($log)->toContain(Output::apiKeyId($apiKey));
-    expect($log)->not->toContain('secret', 'with-escaping');
-});
+    expect($log)->toContain($identifier);
+    expect($log)->not->toContain($apiKey, 'secret', 'with-escaping');
+})->with([
+    ['secret/key"with-escaping-aB3x9K2m', '...aB3x9K2m'],
+    ['shortkey', '[redacted]'],
+]);

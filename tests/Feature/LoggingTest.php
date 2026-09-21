@@ -287,9 +287,9 @@ it('groups forwarded counts by entity type in the summary', function () {
 });
 
 it('logs forbidden responses without exposing credentials and summarizes ongoing drops', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(403, ['CF-RAY' => 'example-ray'], '<html>Blocked api-key</html>'));
+    $upstream = createUpstreamFixture(fn () => new Response(403, ['CF-RAY' => 'example-ray'], '<html>Blocked example-private-api-key-aB3x9K2m</html>'));
     $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['verbose' => true, 'summary_interval' => 0.02]);
-    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'example-private-api-key-aB3x9K2m'];
 
     \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'blocked'])));
     waitUntil(fn () => $daemon['ingest']->status()['degraded']);
@@ -299,8 +299,8 @@ it('logs forbidden responses without exposing credentials and summarizes ongoing
         waitUntil(fn () => substr_count(readStream($daemon['stdout']), 'payloads dropped while upstream delivery is paused') === $interval + 1);
     }
 
-    expect(readStream($daemon['stderr']))->toContain('upstream request forbidden', 'example-ray', 'retry_after', Output::apiKeyId('api-key'));
-    expect(readStream($daemon['stderr']))->not->toContain('api-key', '<html>', 'rejected api key')
-        ->and(readStream($daemon['stdout']))->not->toContain('api-key')
+    expect(readStream($daemon['stderr']))->toContain('upstream request forbidden', 'example-ray', 'retry_after', '...aB3x9K2m');
+    expect(readStream($daemon['stderr']))->not->toContain('example-private-api-key-aB3x9K2m', '<html>', 'rejected api key')
+        ->and(readStream($daemon['stdout']))->not->toContain('example-private-api-key-aB3x9K2m')
         ->and($upstream['requests'])->toHaveCount(1);
 });
