@@ -13,6 +13,8 @@ use function React\Promise\resolve;
 
 class Ingest
 {
+    protected const DEGRADED_WINDOW_SECONDS = 60.0;
+
     /** @var array<string, array<string, Buffer>> */
     protected array $buffers = [];
 
@@ -53,7 +55,6 @@ class Ingest
         protected float $maintenanceIntervalSeconds = 1.0,
         protected int $defaultRetryAfterSeconds = 60,
         protected float $summaryIntervalSeconds = 10.0,
-        protected float $degradedWindowSeconds = 60.0,
     ) {
         $this->quotaState = $quotaState ?? new QuotaState;
         $this->lastSummaryAt = microtime(true);
@@ -82,7 +83,7 @@ class Ingest
         $now = microtime(true);
 
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
-            $this->recordDropped($type, 1);
+            $this->recordPausedDrops($type, 1);
 
             return;
         }
@@ -156,7 +157,6 @@ class Ingest
         }
 
         $this->shuttingDown = true;
-        $this->logDeliverySummary();
 
         if ($this->maintenanceTimer !== null) {
             $this->loop->cancelTimer($this->maintenanceTimer);
@@ -191,7 +191,7 @@ class Ingest
         ]);
 
         $status = [
-            'degraded' => $this->lastFailedDeliveryAt !== null && $now - $this->lastFailedDeliveryAt < $this->degradedWindowSeconds,
+            'degraded' => $this->lastFailedDeliveryAt !== null && $now - $this->lastFailedDeliveryAt < self::DEGRADED_WINDOW_SECONDS,
             'total_received' => $this->totalReceived,
             'total_buffered' => $this->totalBuffered,
             'total_forwarded' => $this->totalForwarded,
@@ -204,11 +204,12 @@ class Ingest
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
+                $paused = $this->quotaState->isPaused($apiKey, $type, $now);
                 $reason = $this->quotaState->reason($apiKey, $type);
 
                 $status['keys'][$label][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
-                    'paused' => $this->quotaState->isPaused($apiKey, $type, $now),
+                    'paused' => $paused,
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),
                     'last_429_reason' => $reason,
                     'pause_reason' => $reason,
@@ -303,7 +304,7 @@ class Ingest
         $now = microtime(true);
 
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
-            $this->recordDropped($type, count($buffer->drain()));
+            $this->recordPausedDrops($type, count($buffer->drain()));
             $this->cleanupBuffer($apiKey, $type);
             $this->checkForDrain();
 
@@ -444,20 +445,20 @@ class Ingest
         return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
     }
 
-    /** @param array<string, mixed> $labels */
-    protected function uniqueKeyLabel(string $apiKey, array $labels): string
+    /** @param array<string, mixed> $usedLabels */
+    protected function uniqueKeyLabel(string $apiKey, array $usedLabels): string
     {
         $label = ApiKey::label($apiKey);
         $uniqueLabel = $label;
 
-        for ($collision = 2; isset($labels[$uniqueLabel]); $collision++) {
+        for ($collision = 2; isset($usedLabels[$uniqueLabel]); $collision++) {
             $uniqueLabel = "{$label}#{$collision}";
         }
 
         return $uniqueLabel;
     }
 
-    protected function recordDropped(string $type, int $count): void
+    protected function recordPausedDrops(string $type, int $count): void
     {
         $this->pausedDropsSinceLastSummary[$type] = ($this->pausedDropsSinceLastSummary[$type] ?? 0) + $count;
     }
@@ -536,6 +537,8 @@ class Ingest
                 }
             }
         }
+
+        $this->logDeliverySummary();
 
         foreach ($this->drainCallbacks as $callback) {
             $callback();
