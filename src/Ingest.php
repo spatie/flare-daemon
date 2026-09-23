@@ -191,7 +191,7 @@ class Ingest
         ]);
 
         $status = [
-            'degraded' => $this->lastFailedDeliveryAt !== null && $now - $this->lastFailedDeliveryAt < self::DEGRADED_WINDOW_SECONDS,
+            'degraded' => $this->isDegraded($now),
             'total_received' => $this->totalReceived,
             'total_buffered' => $this->totalBuffered,
             'total_forwarded' => $this->totalForwarded,
@@ -204,12 +204,11 @@ class Ingest
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
-                $paused = $this->quotaState->isPaused($apiKey, $type, $now);
-                $reason = $this->quotaState->reason($apiKey, $type);
+                $reason = $this->quotaState->reason($apiKey, $type, $now);
 
                 $status['keys'][$label][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
-                    'paused' => $paused,
+                    'paused' => $this->quotaState->isPaused($apiKey, $type, $now),
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),
                     'last_429_reason' => $reason,
                     'pause_reason' => $reason,
@@ -443,6 +442,12 @@ class Ingest
         $timestamp = strtotime($header);
 
         return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
+    }
+
+    protected function isDegraded(float $now): bool
+    {
+        return $this->lastFailedDeliveryAt !== null
+            && $now - $this->lastFailedDeliveryAt < self::DEGRADED_WINDOW_SECONDS;
     }
 
     /** @param array<string, mixed> $usedLabels */

@@ -1,5 +1,6 @@
 <?php
 
+use React\Http\Message\Uri;
 use Spatie\FlareDaemon\Support\Output;
 
 it('writes debug messages only when verbose is enabled', function () {
@@ -40,21 +41,27 @@ it('redacts credentials in structured logs and exception messages', function () 
         'api_key' => $apiKey,
         'body' => ['message' => "Rejected {$apiKey}"],
         'exception' => new RuntimeException("Rejected {$apiKey}"),
-        'url' => new class($apiKey) implements Stringable
-        {
-            public function __construct(protected string $apiKey) {}
-
-            public function __toString(): string
-            {
-                return "https://example.com/?key={$this->apiKey}";
-            }
-        },
     ]);
 
     $log = readStream($capture['stderr']);
 
     expect($log)->toContain('...aB3x9K2m');
     expect($log)->not->toContain($apiKey, 'secret', 'with-escaping');
+});
+
+it('redacts credentials in stringable log values', function () {
+    $apiKey = 'example-private-key-aB3x9K2m';
+    $capture = makeOutputWithCapture();
+
+    $capture['output']->error('upstream request failed', [
+        'api_key' => $apiKey,
+        'url' => new Uri("https://example.com/?key={$apiKey}"),
+    ]);
+
+    $log = readStream($capture['stderr']);
+
+    expect($log)->toContain('?key=...aB3x9K2m');
+    expect($log)->not->toContain($apiKey);
 });
 
 it('labels short api keys without rewriting other log text', function () {

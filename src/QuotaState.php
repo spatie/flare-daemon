@@ -39,9 +39,13 @@ class QuotaState
         return true;
     }
 
-    public function reason(string $apiKey, string $type): ?string
+    public function reason(string $apiKey, string $type, float $now): ?string
     {
-        return $this->states[$apiKey][$type]['reason'] ?? null;
+        if (! $this->isPaused($apiKey, $type, $now)) {
+            return null;
+        }
+
+        return $this->states[$apiKey][$type]['reason'];
     }
 
     public function retryAfter(string $apiKey, string $type, float $now): ?string

@@ -146,15 +146,15 @@ class Server
             $headers = $result['headers'];
             $body = $result['body'];
 
-            if ($body !== null && ! is_string($body)) {
-                return $this->jsonResponse($result['status'], $body, $headers);
+            if ($body === null || is_string($body)) {
+                return new Response(
+                    $result['status'],
+                    array_merge(['Content-Type' => 'text/plain'], $headers),
+                    $body ?? '',
+                );
             }
 
-            return new Response(
-                $result['status'],
-                array_merge(['Content-Type' => 'text/plain'], $headers),
-                $body ?? '',
-            );
+            return $this->jsonResponse($result['status'], $body, $headers);
         });
     }
 

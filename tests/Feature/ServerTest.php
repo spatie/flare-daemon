@@ -24,7 +24,8 @@ it('exposes health and status endpoints', function () {
 });
 
 it('keeps status records separate when masked key labels collide', function () {
-    $upstream = createUpstreamFixture(fn (ServerRequestInterface $request) => new Response(429, [], 'Quota exceeded for '.$request->getHeaderLine('X-API-Token')));
+    $rejectWithKeyInReason = fn (ServerRequestInterface $request) => new Response(429, [], 'Quota exceeded for '.$request->getHeaderLine('X-API-Token'));
+    $upstream = createUpstreamFixture($rejectWithKeyInReason);
     $daemon = createDaemonFixture($upstream['base_url'], ['default_retry_after' => 60]);
     $firstKey = 'example-first-private-key-aB3x9K2m';
     $secondKey = 'example-second-private-key-aB3x9K2m';
@@ -223,6 +224,7 @@ it('returns validation and rejection responses for test payloads', function () {
         ->and($forbiddenResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and((string) $forbiddenResponse->getBody())->toBe('Invalid API key')
         ->and($scalarResponse->getStatusCode())->toBe(403)
+        ->and($scalarResponse->getHeaderLine('Content-Type'))->toContain('application/json')
         ->and((string) $scalarResponse->getBody())->toBe('true')
         ->and($invalidResponse->getStatusCode())->toBe(422)
         ->and($invalidResponse->getHeaderLine('Content-Type'))->toContain('application/json')

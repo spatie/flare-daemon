@@ -31,8 +31,10 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
     waitUntil(fn () => $upstream['requests']->count() === 1);
     waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['paused'] ?? false);
 
-    expect(fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['pause_reason'])->toBe('Trace quota exceeded')
-        ->and(fetchStatus($daemon)['degraded'])->toBeFalse();
+    $status = fetchStatus($daemon);
+
+    expect($status['keys']['...aB3x9K2m']['traces']['pause_reason'])->toBe('Trace quota exceeded')
+        ->and($status['degraded'])->toBeFalse();
 
     \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/traces',

@@ -334,6 +334,8 @@ it('masks the api key before truncating logged response bodies', function () {
     ));
     waitUntil(fn () => str_contains(readStream($daemon['stderr']), 'upstream request failed'));
 
-    expect(readStream($daemon['stderr']))->toContain('...aB3x9K2m');
-    expect(readStream($daemon['stderr']))->not->toContain(substr($apiKey, 0, 10));
+    $log = readStream($daemon['stderr']);
+
+    expect($log)->toContain('...aB3x9K2m');
+    expect($log)->not->toContain(substr($apiKey, 0, 10));
 });
