@@ -23,30 +23,21 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 1]),
     ));
 
     waitUntil(fn () => $upstream['requests']->count() === 1);
-    waitUntil(function () use ($daemon) {
-        $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-        $statusBody = json_decode((string) $statusResponse->getBody(), true);
+    waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['paused'] ?? false);
 
-        return $statusBody['keys']['[redacted]']['traces']['paused'] ?? false;
-    });
-
-    $statusWhilePaused = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-    $pausedBody = json_decode((string) $statusWhilePaused->getBody(), true);
-
-    expect($pausedBody['keys']['[redacted]']['traces']['paused'])->toBeTrue()
-        ->and($pausedBody['keys']['[redacted]']['traces']['pause_reason'])->toBe('Trace quota exceeded');
+    expect(fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['pause_reason'])->toBe('Trace quota exceeded');
 
     \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 2]),
     ));
@@ -57,7 +48,7 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 3]),
     ));

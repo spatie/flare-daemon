@@ -10,11 +10,11 @@ class QuotaState
     public const ENTITY_TYPES = ['errors', 'traces', 'logs'];
 
     /**
-     * @var array<string, array<string, array{retry_after: float, reason: string|null}>>
+     * @var array<string, array<string, array{retry_after: float, reason: string}>>
      */
     protected array $states = [];
 
-    public function pause(string $apiKey, string $type, float $retryAfter, ?string $reason = null): void
+    public function pause(string $apiKey, string $type, float $retryAfter, string $reason): void
     {
         $this->states[$apiKey][$type] = [
             'retry_after' => $retryAfter,

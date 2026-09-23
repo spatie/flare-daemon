@@ -5,6 +5,7 @@ namespace Spatie\FlareDaemon;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 use React\Promise\PromiseInterface;
+use Spatie\FlareDaemon\Support\ApiKey;
 use Spatie\FlareDaemon\Support\Output;
 use Throwable;
 
@@ -36,7 +37,7 @@ class Ingest
     protected array $forwardedSinceLastSummary = [];
 
     /** @var array<string, int> */
-    protected array $droppedSinceLastSummary = [];
+    protected array $pausedDropsSinceLastSummary = [];
 
     protected float $lastSummaryAt;
 
@@ -198,21 +199,14 @@ class Ingest
         ];
 
         foreach ($keys as $apiKey) {
-            $displayId = Output::apiKeyId($apiKey);
-            $uniqueDisplayId = $displayId;
-            $collision = 1;
-
-            while (isset($status['keys'][$uniqueDisplayId])) {
-                $collision++;
-                $uniqueDisplayId = "{$displayId}#{$collision}";
-            }
+            $label = $this->uniqueKeyLabel($apiKey, $status['keys'] ?? []);
 
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
                 $reason = $this->quotaState->reason($apiKey, $type);
 
-                $status['keys'][$uniqueDisplayId][$type] = [
+                $status['keys'][$label][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
                     'paused' => $this->quotaState->isPaused($apiKey, $type, $now),
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),
@@ -381,7 +375,7 @@ class Ingest
                 'api_key' => $apiKey,
                 'type' => $type,
                 'status' => $status,
-                'cf_ray' => $this->header($response['headers'], 'cf-ray'),
+                'cf_ray' => $response['headers']['cf-ray'][0] ?? null,
                 'body' => Upstream::summarizeBody($body, $apiKey),
             ]);
         } else {
@@ -435,7 +429,7 @@ class Ingest
      */
     protected function parseRetryAfter(array $headers, float $now): float
     {
-        $header = $this->header($headers, 'retry-after');
+        $header = $headers['retry-after'][0] ?? null;
 
         if ($header === null) {
             return $now + $this->defaultRetryAfterSeconds;
@@ -450,28 +444,29 @@ class Ingest
         return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
     }
 
-    /** @param array<string, array<int, string>> $headers */
-    protected function header(array $headers, string $name): ?string
+    /** @param array<string, mixed> $labels */
+    protected function uniqueKeyLabel(string $apiKey, array $labels): string
     {
-        foreach ($headers as $header => $values) {
-            if (strtolower($header) === $name) {
-                return $values[0] ?? null;
-            }
+        $label = ApiKey::label($apiKey);
+        $uniqueLabel = $label;
+
+        for ($collision = 2; isset($labels[$uniqueLabel]); $collision++) {
+            $uniqueLabel = "{$label}#{$collision}";
         }
 
-        return null;
+        return $uniqueLabel;
     }
 
     protected function recordDropped(string $type, int $count): void
     {
-        $this->droppedSinceLastSummary[$type] = ($this->droppedSinceLastSummary[$type] ?? 0) + $count;
+        $this->pausedDropsSinceLastSummary[$type] = ($this->pausedDropsSinceLastSummary[$type] ?? 0) + $count;
     }
 
     protected function logDeliverySummary(): void
     {
-        if ($this->droppedSinceLastSummary !== []) {
-            $this->output->warning('payloads dropped while upstream delivery is paused', $this->droppedSinceLastSummary);
-            $this->droppedSinceLastSummary = [];
+        if ($this->pausedDropsSinceLastSummary !== []) {
+            $this->output->warning('payloads dropped while upstream delivery is paused', $this->pausedDropsSinceLastSummary);
+            $this->pausedDropsSinceLastSummary = [];
         }
 
         if ($this->forwardedSinceLastSummary === []) {
@@ -518,25 +513,14 @@ class Ingest
     }
 
     /**
-    /**
      * @param  array<string, array<int, string>>  $headers
      * @return array<string, string>
      */
     protected function forwardedHeaders(array $headers): array
     {
-        $selectedHeaders = [];
+        $retryAfter = $headers['retry-after'][0] ?? '';
 
-        foreach (['Retry-After', 'retry-after'] as $name) {
-            $value = $headers[$name][0] ?? null;
-
-            if ($value === null || $value === '') {
-                continue;
-            }
-
-            $selectedHeaders['Retry-After'] = $value;
-        }
-
-        return $selectedHeaders;
+        return $retryAfter === '' ? [] : ['Retry-After' => $retryAfter];
     }
 
     protected function checkForDrain(): void

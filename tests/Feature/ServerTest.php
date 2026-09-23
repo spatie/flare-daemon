@@ -167,13 +167,11 @@ it('returns upstream errors for test payloads without mutating daemon quota stat
         encodePayload(['message' => 'test']),
     ));
 
-    $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-
     expect($testResponse->getStatusCode())->toBe(429)
         ->and($testResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and($testResponse->getHeaderLine('Retry-After'))->toBe('60')
         ->and((string) $testResponse->getBody())->toBe('Trace quota exceeded')
-        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['degraded' => false, 'total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
+        ->and(fetchStatus($daemon))->toBe(['degraded' => false, 'total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
 });
 
 it('returns validation and rejection responses for test payloads', function () {

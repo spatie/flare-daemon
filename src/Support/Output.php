@@ -73,11 +73,6 @@ class Output
         );
     }
 
-    public static function apiKeyId(string $apiKey): string
-    {
-        return strlen($apiKey) > 8 ? '...'.substr($apiKey, -8) : '[redacted]';
-    }
-
     /**
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
@@ -89,12 +84,12 @@ class Output
 
         foreach ($context as $key => $value) {
             $normalized[$key] = match (true) {
-                $key === 'api_key' && is_string($value) => self::apiKeyId($value),
+                $key === 'api_key' && is_string($value) => ApiKey::label($value),
                 $value instanceof \Throwable => $this->normalize([
                     'class' => $value::class,
                     'message' => $value->getMessage(),
                 ], $apiKey),
-                is_string($value) && $apiKey !== null && $apiKey !== '' => str_replace($apiKey, self::apiKeyId($apiKey), $value),
+                is_string($value) => ApiKey::redact($value, $apiKey),
                 is_scalar($value), $value === null => $value,
                 $value instanceof Stringable => (string) $value,
                 is_array($value) => $this->normalize($value, $apiKey),

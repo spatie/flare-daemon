@@ -5,8 +5,8 @@ namespace Spatie\FlareDaemon;
 use Psr\Http\Message\ResponseInterface;
 use React\Http\Browser;
 use React\Promise\PromiseInterface;
+use Spatie\FlareDaemon\Support\ApiKey;
 use Spatie\FlareDaemon\Support\Json;
-use Spatie\FlareDaemon\Support\Output;
 
 class Upstream
 {
@@ -37,7 +37,7 @@ class Upstream
             $body,
         )->then(function (ResponseInterface $response): array {
             /** @var array<string, array<int, string>> $headers */
-            $headers = $response->getHeaders();
+            $headers = array_change_key_case($response->getHeaders());
 
             return [
                 'status' => $response->getStatusCode(),
@@ -68,9 +68,7 @@ class Upstream
             default => Json::encode($body),
         };
 
-        if ($apiKey !== null && $apiKey !== '') {
-            $string = str_replace($apiKey, Output::apiKeyId($apiKey), $string);
-        }
+        $string = ApiKey::redact($string, $apiKey);
 
         return mb_strlen($string) <= $limit
             ? $string
