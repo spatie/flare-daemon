@@ -6,6 +6,7 @@ use React\EventLoop\Loop;
 use React\Http\Browser;
 use React\Http\HttpServer;
 use React\Promise\Deferred;
+use React\Promise\PromiseInterface;
 use React\Socket\SocketServer;
 use Spatie\FlareDaemon\Ingest;
 use Spatie\FlareDaemon\QuotaState;
@@ -112,7 +113,7 @@ function readStream($stream): string
 }
 
 /**
- * @param  callable(ServerRequestInterface): ResponseInterface  $handler
+ * @param  callable(ServerRequestInterface): (ResponseInterface|PromiseInterface<ResponseInterface>)  $handler
  * @return array{
  *     base_url: string,
  *     requests: ArrayObject<int, array{
@@ -202,6 +203,19 @@ function createDaemonFixture(string $upstreamBaseUrl, array $options = []): arra
         'server' => $server,
         'quota_state' => $quotaState,
     ];
+}
+
+/**
+ * @param  array{daemon_url: string, client: Browser}  $daemon
+ * @return array<string, mixed>
+ */
+function fetchStatus(array $daemon): array
+{
+    $response = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
+    $status = Json::decode((string) $response->getBody());
+    assert(is_array($status));
+
+    return $status;
 }
 
 function waitFor(float $seconds): void

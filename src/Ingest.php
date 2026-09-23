@@ -40,6 +40,8 @@ class Ingest
 
     protected float $lastSummaryAt;
 
+    protected ?float $lastFailedDeliveryAt = null;
+
     public function __construct(
         protected LoopInterface $loop,
         protected Upstream $upstream,
@@ -50,6 +52,7 @@ class Ingest
         protected float $maintenanceIntervalSeconds = 1.0,
         protected int $defaultRetryAfterSeconds = 60,
         protected float $summaryIntervalSeconds = 10.0,
+        protected float $degradedWindowSeconds = 60.0,
     ) {
         $this->quotaState = $quotaState ?? new QuotaState;
         $this->lastSummaryAt = microtime(true);
@@ -78,7 +81,7 @@ class Ingest
         $now = microtime(true);
 
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
-            $this->droppedSinceLastSummary[$type] = ($this->droppedSinceLastSummary[$type] ?? 0) + 1;
+            $this->recordDropped($type, 1);
 
             return;
         }
@@ -187,7 +190,7 @@ class Ingest
         ]);
 
         $status = [
-            'degraded' => false,
+            'degraded' => $this->lastFailedDeliveryAt !== null && $now - $this->lastFailedDeliveryAt < $this->degradedWindowSeconds,
             'total_received' => $this->totalReceived,
             'total_buffered' => $this->totalBuffered,
             'total_forwarded' => $this->totalForwarded,
@@ -207,13 +210,11 @@ class Ingest
             foreach (QuotaState::ENTITY_TYPES as $type) {
                 $buffer = $this->buffers[$apiKey][$type] ?? null;
 
-                $paused = $this->quotaState->isPaused($apiKey, $type, $now);
-                $status['degraded'] = $status['degraded'] || $paused;
                 $reason = $this->quotaState->reason($apiKey, $type);
 
                 $status['keys'][$uniqueDisplayId][$type] = [
                     'buffered' => $buffer?->count() ?? 0,
-                    'paused' => $paused,
+                    'paused' => $this->quotaState->isPaused($apiKey, $type, $now),
                     'retry_after' => $this->quotaState->retryAfter($apiKey, $type, $now),
                     'last_429_reason' => $reason,
                     'pause_reason' => $reason,
@@ -308,7 +309,7 @@ class Ingest
         $now = microtime(true);
 
         if ($this->quotaState->isPaused($apiKey, $type, $now)) {
-            $buffer->drain();
+            $this->recordDropped($type, count($buffer->drain()));
             $this->cleanupBuffer($apiKey, $type);
             $this->checkForDrain();
 
@@ -358,7 +359,7 @@ class Ingest
         $body = $response['body'];
 
         if ($status === 429) {
-            $reason = Upstream::summarizeBody(str_replace($apiKey, Output::apiKeyId($apiKey), Upstream::reasonFromResponseBody($body, $status)));
+            $reason = Upstream::summarizeBody(Upstream::reasonFromResponseBody($body, $status), $apiKey);
             $retryAfter = $this->parseRetryAfter($response['headers'], microtime(true));
 
             $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
@@ -366,30 +367,22 @@ class Ingest
                 'api_key' => $apiKey,
                 'type' => $type,
                 'reason' => $reason,
-                'retry_after' => $retryAfter === null ? null : gmdate(DATE_ATOM, (int) $retryAfter),
-            ]);
-        } elseif ($status === 403) {
-            $retryAfter = microtime(true) + $this->defaultRetryAfterSeconds;
-            $this->quotaState->pause($apiKey, $type, $retryAfter, 'HTTP 403');
-            $this->output->error('upstream request forbidden; delivery temporarily paused', [
-                'api_key' => $apiKey,
-                'type' => $type,
-                'status' => $status,
-                'cf_ray' => $this->header($response['headers'], 'cf-ray'),
                 'retry_after' => gmdate(DATE_ATOM, (int) $retryAfter),
             ]);
         } elseif ($status === 422) {
             $this->output->warning('upstream validation failed', [
                 'api_key' => $apiKey,
                 'type' => $type,
-                'body' => Upstream::summarizeBody($body),
+                'body' => Upstream::summarizeBody($body, $apiKey),
             ]);
         } elseif ($status < 200 || $status >= 300) {
+            $this->lastFailedDeliveryAt = microtime(true);
             $this->output->error('upstream request failed', [
                 'api_key' => $apiKey,
                 'type' => $type,
                 'status' => $status,
-                'body' => Upstream::summarizeBody($body),
+                'cf_ray' => $this->header($response['headers'], 'cf-ray'),
+                'body' => Upstream::summarizeBody($body, $apiKey),
             ]);
         } else {
             $this->totalForwarded++;
@@ -420,6 +413,7 @@ class Ingest
         }
 
         $this->inFlight--;
+        $this->lastFailedDeliveryAt = microtime(true);
 
         $this->output->error('upstream request failed', [
             'api_key' => $apiKey,
@@ -439,7 +433,7 @@ class Ingest
     /**
      * @param  array<string, array<int, string>>  $headers
      */
-    protected function parseRetryAfter(array $headers, float $now): ?float
+    protected function parseRetryAfter(array $headers, float $now): float
     {
         $header = $this->header($headers, 'retry-after');
 
@@ -466,6 +460,11 @@ class Ingest
         }
 
         return null;
+    }
+
+    protected function recordDropped(string $type, int $count): void
+    {
+        $this->droppedSinceLastSummary[$type] = ($this->droppedSinceLastSummary[$type] ?? 0) + $count;
     }
 
     protected function logDeliverySummary(): void

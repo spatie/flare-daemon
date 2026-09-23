@@ -23,8 +23,8 @@ it('exposes health and status endpoints', function () {
 });
 
 it('keeps status records separate when masked key labels collide', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(403));
-    $daemon = createDaemonFixture($upstream['base_url']);
+    $upstream = createUpstreamFixture(fn () => new Response(429));
+    $daemon = createDaemonFixture($upstream['base_url'], ['default_retry_after' => 60]);
     $firstKey = 'example-first-private-key-aB3x9K2m';
     $secondKey = 'example-second-private-key-aB3x9K2m';
 

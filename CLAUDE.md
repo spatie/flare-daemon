@@ -76,7 +76,8 @@ The release workflow publishes the chart as `oci://ghcr.io/spatie/charts/flare-d
 
 - Buffers are per API key × entity type (errors/traces/logs). Not a single shared queue.
 - Test payloads (`X-Flare-Test: 1`) force an immediate flush and return the upstream response directly. Normal payloads return JSON `202 {"status":"accepted"}` immediately.
-- 429 and 403 pause only the affected (key, type). 429 honors Retry-After; 403 uses a finite 60-second cooldown, regardless of response body. Normal items are dropped on pause; diagnostic requests bypass it.
+- 429 pauses only the affected (key, type), honoring Retry-After or falling back to 60 seconds. Normal items, including already queued ones, are dropped on pause; diagnostic requests bypass it.
+- 403 and every other failure drop only that payload and never pause. A 403 can come from the edge worker, the Flare API, or a Cloudflare WAF rule, and the daemon cannot tell whether it will last. `/status.degraded` means a delivery failed recently, not that a stream is paused.
 - Upstream sends one payload per request (no batch API in v1).
 - The errors CF worker is a transparent proxy — it passes through whatever status the real Flare API returns (currently 204). Traces/logs workers return a hardcoded 201. The daemon must treat any 2xx as success, not maintain an allowlist.
 

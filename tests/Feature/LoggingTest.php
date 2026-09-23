@@ -3,6 +3,7 @@
 use React\EventLoop\Loop;
 use React\Http\Browser;
 use React\Http\Message\Response;
+use React\Promise\Deferred;
 use Spatie\FlareDaemon\Ingest;
 use Spatie\FlareDaemon\QuotaState;
 use Spatie\FlareDaemon\Server;
@@ -286,21 +287,52 @@ it('groups forwarded counts by entity type in the summary', function () {
         ->toContain('"traces":2');
 });
 
-it('logs forbidden responses without exposing credentials and summarizes ongoing drops', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(403, ['CF-RAY' => 'example-ray'], '<html>Blocked example-private-api-key-aB3x9K2m</html>'));
-    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['verbose' => true, 'summary_interval' => 0.02]);
-    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'example-private-api-key-aB3x9K2m'];
+it('logs the status and cf-ray of a forbidden response', function () {
+    $upstream = createUpstreamFixture(fn () => new Response(403, ['CF-RAY' => 'example-ray'], 'Blocked'));
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url']);
 
-    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'blocked'])));
-    waitUntil(fn () => $daemon['ingest']->status()['degraded']);
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'],
+        encodePayload(['message' => 'blocked']),
+    ));
+    waitUntil(fn () => str_contains(readStream($daemon['stderr']), 'upstream request failed'));
 
-    for ($interval = 0; $interval < 2; $interval++) {
-        \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'dropped'])));
-        waitUntil(fn () => substr_count(readStream($daemon['stdout']), 'payloads dropped while upstream delivery is paused') === $interval + 1);
+    expect(readStream($daemon['stderr']))->toContain('"status":403', '"cf_ray":"example-ray"', '"body":"Blocked"');
+});
+
+it('warns about dropped payloads on every summary while paused, including queued payloads', function () {
+    $upstream = createUpstreamFixture(function () {
+        $deferred = new Deferred;
+        Loop::addTimer(0.2, fn () => $deferred->resolve(new Response(429)));
+
+        return $deferred->promise();
+    });
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['default_retry_after' => 60, 'summary_interval' => 0.02]);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
+
+    foreach (['in flight', 'queued', 'queued'] as $message) {
+        \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => $message])));
     }
+    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'payloads dropped while upstream delivery is paused {"errors":2}'));
 
-    expect(readStream($daemon['stderr']))->toContain('upstream request forbidden', 'example-ray', 'retry_after', '...aB3x9K2m');
-    expect(readStream($daemon['stderr']))->not->toContain('example-private-api-key-aB3x9K2m', '<html>', 'rejected api key')
-        ->and(readStream($daemon['stdout']))->not->toContain('example-private-api-key-aB3x9K2m')
-        ->and($upstream['requests'])->toHaveCount(1);
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'while paused'])));
+    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'payloads dropped while upstream delivery is paused {"errors":1}'));
+
+    expect($upstream['requests'])->toHaveCount(1);
+});
+
+it('masks the api key before truncating logged response bodies', function () {
+    $apiKey = 'example-private-api-key-aB3x9K2m';
+    $upstream = createUpstreamFixture(fn () => new Response(500, ['Content-Type' => 'text/plain'], str_repeat('x', 190).$apiKey));
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url']);
+
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        ['Content-Type' => 'application/json', 'X-API-Token' => $apiKey],
+        encodePayload(['message' => 'failed']),
+    ));
+    waitUntil(fn () => str_contains(readStream($daemon['stderr']), 'upstream request failed'));
+
+    expect(readStream($daemon['stderr']))->not->toContain('example-pr');
 });

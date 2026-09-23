@@ -16,13 +16,3 @@ it('pauses and resumes a single key and type', function () {
 
     expect($quotaState->isPaused('api-key', 'traces', 11.0))->toBeFalse();
 });
-
-it('can permanently pause all types for an invalid api key', function () {
-    $quotaState = new QuotaState;
-
-    $quotaState->pauseAll('api-key', 'Invalid API key');
-
-    expect($quotaState->isPermanent('api-key', 'errors'))->toBeTrue()
-        ->and($quotaState->isPermanent('api-key', 'traces'))->toBeTrue()
-        ->and($quotaState->isPermanent('api-key', 'logs'))->toBeTrue();
-});

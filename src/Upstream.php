@@ -6,6 +6,7 @@ use Psr\Http\Message\ResponseInterface;
 use React\Http\Browser;
 use React\Promise\PromiseInterface;
 use Spatie\FlareDaemon\Support\Json;
+use Spatie\FlareDaemon\Support\Output;
 
 class Upstream
 {
@@ -59,13 +60,17 @@ class Upstream
         return "HTTP {$status}";
     }
 
-    public static function summarizeBody(mixed $body, int $limit = 200): string
+    public static function summarizeBody(mixed $body, ?string $apiKey = null, int $limit = 200): string
     {
         $string = match (true) {
             $body === null => '',
             is_string($body) => $body,
             default => Json::encode($body),
         };
+
+        if ($apiKey !== null && $apiKey !== '') {
+            $string = str_replace($apiKey, Output::apiKeyId($apiKey), $string);
+        }
 
         return mb_strlen($string) <= $limit
             ? $string
