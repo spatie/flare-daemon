@@ -301,7 +301,7 @@ it('logs the status and cf-ray of a forbidden response', function () {
     expect(readStream($daemon['stderr']))->toContain('"status":403', '"cf_ray":"example-ray"', '"body":"Blocked"');
 });
 
-it('warns about dropped payloads on every summary while paused, including queued payloads', function () {
+it('warns about payloads dropped while paused, including queued payloads', function () {
     $upstream = createUpstreamFixture(function () {
         $deferred = new Deferred;
         Loop::addTimer(0.2, fn () => $deferred->resolve(new Response(429)));
@@ -334,5 +334,6 @@ it('masks the api key before truncating logged response bodies', function () {
     ));
     waitUntil(fn () => str_contains(readStream($daemon['stderr']), 'upstream request failed'));
 
-    expect(readStream($daemon['stderr']))->not->toContain('example-pr');
+    expect(readStream($daemon['stderr']))->toContain('...aB3x9K2m');
+    expect(readStream($daemon['stderr']))->not->toContain(substr($apiKey, 0, 10));
 });

@@ -11,7 +11,7 @@ class ApiKey
 
     public static function redact(string $text, ?string $apiKey): string
     {
-        if ($apiKey === null || $apiKey === '') {
+        if ($apiKey === null || strlen($apiKey) <= 8) {
             return $text;
         }
 

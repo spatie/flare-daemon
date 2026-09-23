@@ -91,7 +91,7 @@ class Output
                 ], $apiKey),
                 is_string($value) => ApiKey::redact($value, $apiKey),
                 is_scalar($value), $value === null => $value,
-                $value instanceof Stringable => (string) $value,
+                $value instanceof Stringable => ApiKey::redact((string) $value, $apiKey),
                 is_array($value) => $this->normalize($value, $apiKey),
                 default => get_debug_type($value),
             };
