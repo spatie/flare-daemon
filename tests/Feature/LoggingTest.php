@@ -302,18 +302,15 @@ it('logs the status and cf-ray of a forbidden response', function () {
 });
 
 it('warns about payloads dropped while paused, including queued payloads', function () {
-    $upstream = createUpstreamFixture(function () {
-        $deferred = new Deferred;
-        Loop::addTimer(0.2, fn () => $deferred->resolve(new Response(429)));
-
-        return $deferred->promise();
-    });
+    $upstreamResponse = new Deferred;
+    $upstream = createUpstreamFixture(fn () => $upstreamResponse->promise());
     $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['default_retry_after' => 60, 'summary_interval' => 0.02]);
     $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
 
     foreach (['in flight', 'queued', 'queued'] as $message) {
         \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => $message])));
     }
+    $upstreamResponse->resolve(new Response(429));
     waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'payloads dropped while upstream delivery is paused {"errors":2}'));
 
     \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'while paused'])));

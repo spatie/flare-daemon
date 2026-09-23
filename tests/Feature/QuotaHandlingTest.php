@@ -82,6 +82,19 @@ it('lets diagnostic requests bypass a quota pause', function () {
         ->and($upstream['requests'])->toHaveCount(2);
 });
 
+it('reports the daemon as degraded after a network error', function () {
+    $daemon = createDaemonFixture('http://'.freeLocalAddress());
+
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'],
+        encodePayload(['message' => 'unreachable']),
+    ));
+    waitUntil(fn () => fetchStatus($daemon)['degraded']);
+
+    expect(fetchStatus($daemon)['degraded'])->toBeTrue();
+});
+
 it('keeps forwarding after a forbidden response and reports the daemon as degraded', function () {
     $responseCount = 0;
     $upstream = createUpstreamFixture(function () use (&$responseCount) {

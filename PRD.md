@@ -299,10 +299,10 @@ The daemon exposes:
 ```json
 {
   "degraded": false,
-  "total_received": 12,
-  "total_buffered": 10,
+  "total_received": 13,
+  "total_buffered": 11,
   "total_forwarded": 6,
-  "total_dropped": 6,
+  "total_dropped": 7,
   "keys": {
     "...aB3x9K2m": {
       "errors": {
@@ -331,7 +331,7 @@ The daemon exposes:
 }
 ```
 
-`total_dropped` is `total_received` minus `total_forwarded`. It is not a count of lost payloads. It also includes payloads that are still buffered or in flight, payloads the upstream rejected or that failed to deliver, and payloads received during shutdown. In this example, 2 payloads were dropped by a pause and 4 are still buffered.
+`total_dropped` is `total_received` minus `total_forwarded`. It is not a count of lost payloads. It also includes payloads that are still buffered or in flight, payloads the upstream rejected or that failed to deliver, and payloads received during shutdown. In this example, 2 payloads were dropped by a pause, 1 was rejected with a `429`, and 4 are still buffered.
 
 Keys show only their last eight characters. Keys of eight characters or fewer show `[redacted]`, and colliding labels get a `#2`, `#3` suffix. `degraded` is true when an upstream delivery failed in the last 60 seconds with a network error or a status other than `2xx`, `422`, or `429`. Quota pauses show per stream instead. `last_429_reason` is a legacy alias of `pause_reason`.
 

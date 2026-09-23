@@ -45,8 +45,9 @@ it('redacts credentials in structured logs and exception messages', function () 
 
     $log = readStream($capture['stderr']);
 
-    expect($log)->toContain('...aB3x9K2m');
-    expect($log)->not->toContain($apiKey, 'secret', 'with-escaping');
+    expect(substr_count($log, 'Rejected ...aB3x9K2m'))->toBe(2);
+    expect($log)->not->toContain('secret');
+    expect($log)->not->toContain('with-escaping');
 });
 
 it('redacts credentials in stringable log values', function () {

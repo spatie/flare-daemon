@@ -43,8 +43,9 @@ it('keeps status records separate when masked key labels collide', function () {
     $response = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
     $status = json_decode((string) $response->getBody(), true);
 
-    expect((string) $response->getBody())->not->toContain($firstKey, $secondKey)
-        ->and($status['keys'])->toHaveCount(2)
+    expect((string) $response->getBody())->not->toContain($firstKey);
+    expect((string) $response->getBody())->not->toContain($secondKey);
+    expect($status['keys'])->toHaveCount(2)
         ->and($status['keys']['...aB3x9K2m']['errors']['paused'])->toBeTrue()
         ->and($status['keys']['...aB3x9K2m']['traces']['paused'])->toBeFalse()
         ->and($status['keys']['...aB3x9K2m#2']['errors']['paused'])->toBeFalse()
