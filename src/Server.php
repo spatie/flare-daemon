@@ -146,7 +146,7 @@ class Server
             $headers = $result['headers'];
             $body = $result['body'];
 
-            if (is_array($body)) {
+            if ($body !== null && ! is_string($body)) {
                 return $this->jsonResponse($result['status'], $body, $headers);
             }
 

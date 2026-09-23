@@ -1,5 +1,6 @@
 <?php
 
+use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Loop;
 use React\Http\Browser;
 use React\Http\Message\Response;
@@ -23,7 +24,7 @@ it('exposes health and status endpoints', function () {
 });
 
 it('keeps status records separate when masked key labels collide', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(429));
+    $upstream = createUpstreamFixture(fn (ServerRequestInterface $request) => new Response(429, [], 'Quota exceeded for '.$request->getHeaderLine('X-API-Token')));
     $daemon = createDaemonFixture($upstream['base_url'], ['default_retry_after' => 60]);
     $firstKey = 'example-first-private-key-aB3x9K2m';
     $secondKey = 'example-second-private-key-aB3x9K2m';
@@ -182,12 +183,23 @@ it('returns validation and rejection responses for test payloads', function () {
 
         return match ($responseCount) {
             1 => new Response(403, ['Content-Type' => 'text/plain'], 'Invalid API key'),
+            2 => new Response(403, ['Content-Type' => 'application/json'], 'true'),
             default => new Response(422, ['Content-Type' => 'application/json'], '{"message":"The given data was invalid.","errors":{"payload":["Invalid"]}}'),
         };
     });
     $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 1.0]);
 
     $forbiddenResponse = \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        [
+            'Content-Type' => 'application/json',
+            'X-API-Token' => 'api-key',
+            'X-Flare-Test' => '1',
+        ],
+        encodePayload(['message' => 'test']),
+    ));
+
+    $scalarResponse = \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/errors',
         [
             'Content-Type' => 'application/json',
@@ -210,6 +222,8 @@ it('returns validation and rejection responses for test payloads', function () {
     expect($forbiddenResponse->getStatusCode())->toBe(403)
         ->and($forbiddenResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and((string) $forbiddenResponse->getBody())->toBe('Invalid API key')
+        ->and($scalarResponse->getStatusCode())->toBe(403)
+        ->and((string) $scalarResponse->getBody())->toBe('true')
         ->and($invalidResponse->getStatusCode())->toBe(422)
         ->and($invalidResponse->getHeaderLine('Content-Type'))->toContain('application/json')
         ->and(json_decode((string) $invalidResponse->getBody(), true))->toBe([
