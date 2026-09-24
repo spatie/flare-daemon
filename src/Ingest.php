@@ -45,6 +45,12 @@ class Ingest
 
     protected ?float $lastFailedDeliveryAt = null;
 
+    /** @var array<string, array<string, string>> */
+    protected array $lastPauseReasons = [];
+
+    /** @var array<string, array<string, true>> */
+    protected array $loggedPauses = [];
+
     public function __construct(
         protected LoopInterface $loop,
         protected Upstream $upstream,
@@ -260,6 +266,11 @@ class Ingest
         $now = microtime(true);
 
         foreach ($this->quotaState->resumeExpired($now) as $resumed) {
+            if (! isset($this->loggedPauses[$resumed['api_key']][$resumed['type']])) {
+                continue;
+            }
+
+            unset($this->loggedPauses[$resumed['api_key']][$resumed['type']]);
             $this->output->info('upstream pause expired; delivery can resume', $resumed);
         }
 
@@ -357,12 +368,7 @@ class Ingest
             $retryAfter = $this->parseRetryAfter($response['headers'], microtime(true));
 
             $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
-            $this->output->warning('upstream request paused by quota', [
-                'api_key' => $apiKey,
-                'type' => $type,
-                'reason' => $reason,
-                'retry_after' => gmdate(DATE_ATOM, (int) $retryAfter),
-            ]);
+            $this->logPause($apiKey, $type, $reason, $retryAfter);
         } elseif ($status === 422) {
             $this->output->warning('upstream validation failed', [
                 'api_key' => $apiKey,
@@ -380,6 +386,7 @@ class Ingest
             ]);
         } else {
             $this->totalForwarded++;
+            unset($this->lastPauseReasons[$apiKey][$type]);
             $this->forwardedSinceLastSummary[$type] = ($this->forwardedSinceLastSummary[$type] ?? 0) + 1;
             $this->output->debug('payload forwarded upstream', [
                 'api_key' => $apiKey,
@@ -442,6 +449,23 @@ class Ingest
         $timestamp = strtotime($header);
 
         return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
+    }
+
+    protected function logPause(string $apiKey, string $type, string $reason, float $retryAfter): void
+    {
+        if (($this->lastPauseReasons[$apiKey][$type] ?? null) === $reason) {
+            return;
+        }
+
+        $this->lastPauseReasons[$apiKey][$type] = $reason;
+        $this->loggedPauses[$apiKey][$type] = true;
+
+        $this->output->warning('upstream request paused by quota', [
+            'api_key' => $apiKey,
+            'type' => $type,
+            'reason' => $reason,
+            'retry_after' => gmdate(DATE_ATOM, (int) $retryAfter),
+        ]);
     }
 
     protected function isDegraded(float $now): bool
