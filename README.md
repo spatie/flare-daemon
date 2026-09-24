@@ -149,7 +149,13 @@ All configuration is done through environment variables:
 
 ### Upstream failures and delivery status
 
-An upstream `429` pauses only the affected API key and telemetry type. The pause honors `Retry-After` and otherwise lasts 60 seconds. The next payload after the pause tries upstream again.
+An upstream `429` pauses only the affected API key and telemetry type. The next payload after the pause tries upstream again. Flare sends a `429` for three reasons:
+
+- **Quota reached**: the team used its monthly quota for this type. The response has `x-error-quota-reached`, `x-trace-quota-reached`, or `x-log-quota-reached` set to `1`. The pause lasts 60 seconds.
+- **Rate limit**: too many requests for this key in a short window. The pause lasts 10 seconds.
+- **Spike protection**: a project that is spiking temporarily accepts fewer errors per minute. The pause lasts 10 seconds, like a rate limit.
+
+A `Retry-After` header on any `429` sets the pause length instead. A plan limit (`Plan limit exceeded.`) is a `403`, not a `429`.
 
 Any other failure, including `403`, drops only that payload and never pauses delivery. The next payload is sent upstream as usual, the same as sending without the daemon. A `403` may come from an invalid key, the Flare API, or a proxy or firewall. The error log includes the status, the `CF-Ray` header, and a short summary of the response body.
 
