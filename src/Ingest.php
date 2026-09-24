@@ -434,11 +434,12 @@ class Ingest
     protected function pauseAfterTooManyRequests(string $apiKey, string $type, array $response): void
     {
         $now = microtime(true);
+        $headers = $response['headers'];
         $reason = Upstream::summarizeBody(Upstream::reasonFromResponseBody($response['body'], 429), $apiKey);
 
         // Quota 429s carry `x-{type}-quota-reached: 1`. Rate limit and spike protection 429s don't. Plan limits are 403s.
-        $retryAfter = $this->parseRetryAfter($response['headers'], $now)
-            ?? $now + ($this->isQuotaReached($type, $response['headers']) ? $this->quotaPauseSeconds : $this->rateLimitPauseSeconds);
+        $defaultPauseSeconds = $this->isQuotaReached($type, $headers) ? $this->quotaPauseSeconds : $this->rateLimitPauseSeconds;
+        $retryAfter = $this->parseRetryAfter($headers, $now) ?? $now + $defaultPauseSeconds;
 
         $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
         $this->logPause($apiKey, $type, $reason, $retryAfter);
