@@ -336,3 +336,50 @@ it('masks the api key before truncating logged response bodies', function () {
     expect($log)->toContain('...aB3x9K2m');
     expect($log)->not->toContain(substr($apiKey, 0, 10));
 });
+
+it('logs one resume for a logged pause when payloads arrive right after it expires', function () {
+    $responseCount = 0;
+    $upstream = createUpstreamFixture(function () use (&$responseCount) {
+        return ++$responseCount === 1
+            ? new Response(429, ['Retry-After' => '0.1'], 'Error quota exceeded')
+            : new Response(201);
+    });
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['maintenance_interval' => 0.5]);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
+
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'paused'])));
+    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'upstream request paused by quota'));
+    waitFor(0.15);
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'after expiry'])));
+    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'upstream pause expired'), timeout: 1.5);
+
+    $stdout = readStream($daemon['stdout']);
+
+    expect(substr_count($stdout, 'upstream request paused by quota'))->toBe(1)
+        ->and(substr_count($stdout, 'upstream pause expired'))->toBe(1);
+});
+
+it('logs a repeated pause once until a payload is forwarded', function () {
+    $responseCount = 0;
+    $upstream = createUpstreamFixture(function () use (&$responseCount) {
+        return ++$responseCount === 3
+            ? new Response(201)
+            : new Response(429, ['Retry-After' => '0.05'], 'Error quota exceeded');
+    });
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url']);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
+
+    foreach ([1, 2, 3, 4] as $expectedRequests) {
+        waitUntil(function () use ($daemon, $headers, $upstream, $expectedRequests) {
+            \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'payload'])));
+
+            return count($upstream['requests']) === $expectedRequests;
+        }, interval: 0.02);
+    }
+    waitFor(0.1);
+
+    $stdout = readStream($daemon['stdout']);
+
+    expect(substr_count($stdout, 'upstream request paused by quota'))->toBe(2)
+        ->and(substr_count($stdout, 'upstream pause expired'))->toBe(2);
+});
