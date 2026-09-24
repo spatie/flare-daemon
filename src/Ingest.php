@@ -59,7 +59,8 @@ class Ingest
         protected int $byteThreshold = 262144,
         protected float $flushAfterSeconds = 10.0,
         protected float $maintenanceIntervalSeconds = 1.0,
-        protected int $defaultRetryAfterSeconds = 60,
+        protected int $quotaPauseSeconds = 60,
+        protected int $rateLimitPauseSeconds = 10,
         protected float $summaryIntervalSeconds = 10.0,
     ) {
         $this->quotaState = $quotaState ?? new QuotaState;
@@ -364,11 +365,7 @@ class Ingest
         $body = $response['body'];
 
         if ($status === 429) {
-            $reason = Upstream::summarizeBody(Upstream::reasonFromResponseBody($body, $status), $apiKey);
-            $retryAfter = $this->parseRetryAfter($response['headers'], microtime(true));
-
-            $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
-            $this->logPause($apiKey, $type, $reason, $retryAfter);
+            $this->pauseAfterTooManyRequests($apiKey, $type, $response);
         } elseif ($status === 422) {
             $this->output->warning('upstream validation failed', [
                 'api_key' => $apiKey,
@@ -432,14 +429,46 @@ class Ingest
     }
 
     /**
+     * @param  array{status: int, body: mixed, headers: array<string, array<int, string>>}  $response
+     */
+    protected function pauseAfterTooManyRequests(string $apiKey, string $type, array $response): void
+    {
+        $now = microtime(true);
+        $headers = $response['headers'];
+        $reason = Upstream::summarizeBody(Upstream::reasonFromResponseBody($response['body'], 429), $apiKey);
+
+        // Quota 429s carry `x-{type}-quota-reached: 1`. Rate limit and spike protection 429s don't. Plan limits are 403s.
+        $defaultPauseSeconds = $this->isQuotaReached($type, $headers) ? $this->quotaPauseSeconds : $this->rateLimitPauseSeconds;
+        $retryAfter = $this->parseRetryAfter($headers, $now) ?? $now + $defaultPauseSeconds;
+
+        $this->quotaState->pause($apiKey, $type, $retryAfter, $reason);
+        $this->logPause($apiKey, $type, $reason, $retryAfter);
+    }
+
+    /**
      * @param  array<string, array<int, string>>  $headers
      */
-    protected function parseRetryAfter(array $headers, float $now): float
+    protected function isQuotaReached(string $type, array $headers): bool
+    {
+        $header = match ($type) {
+            'errors' => 'x-error-quota-reached',
+            'traces' => 'x-trace-quota-reached',
+            'logs' => 'x-log-quota-reached',
+            default => null,
+        };
+
+        return $header !== null && ($headers[$header][0] ?? null) === '1';
+    }
+
+    /**
+     * @param  array<string, array<int, string>>  $headers
+     */
+    protected function parseRetryAfter(array $headers, float $now): ?float
     {
         $header = $headers['retry-after'][0] ?? null;
 
         if ($header === null) {
-            return $now + $this->defaultRetryAfterSeconds;
+            return null;
         }
 
         if (is_numeric($header)) {
@@ -448,7 +477,7 @@ class Ingest
 
         $timestamp = strtotime($header);
 
-        return $timestamp === false ? $now + $this->defaultRetryAfterSeconds : (float) $timestamp;
+        return $timestamp === false ? null : (float) $timestamp;
     }
 
     protected function logPause(string $apiKey, string $type, string $reason, float $retryAfter): void
@@ -460,7 +489,7 @@ class Ingest
         $this->lastPauseReasons[$apiKey][$type] = $reason;
         $this->loggedPauses[$apiKey][$type] = true;
 
-        $this->output->warning('upstream request paused by quota', [
+        $this->output->warning('upstream request paused', [
             'api_key' => $apiKey,
             'type' => $type,
             'reason' => $reason,

@@ -1,5 +1,6 @@
 <?php
 
+use Psr\Http\Message\ServerRequestInterface;
 use React\Http\Message\Response;
 
 it('pauses a key and type after a 429 response and resumes after retry after', function () {
@@ -16,7 +17,6 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
 
     $daemon = createDaemonFixture($upstream['base_url'], [
         'flush_after' => 0.01,
-        'default_retry_after' => 1,
     ]);
 
     \React\Async\await($daemon['client']->post(
@@ -63,9 +63,27 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         ->and(upstreamBody($upstream['requests'], 1))->toBe(['trace' => 3]);
 });
 
+it('pauses longer for a quota than for a rate limit', function () {
+    $upstream = createUpstreamFixture(fn (ServerRequestInterface $request) => str_ends_with($request->getUri()->getPath(), '/traces')
+        ? new Response(429, ['X-Trace-Quota-Reached' => '1'], 'Trace quota exceeded')
+        : new Response(429, [], 'Rate limit exceeded'));
+    $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 0.01, 'quota_pause' => 60, 'rate_limit_pause' => 10]);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'example-api-key-aB3x9K2m'];
+
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/traces', $headers, encodePayload(['trace' => 1])));
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'error'])));
+    waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['errors']['paused'] ?? false);
+    waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['paused'] ?? false);
+
+    $status = fetchStatus($daemon)['keys']['...aB3x9K2m'];
+
+    expect(strtotime($status['traces']['retry_after']) - time())->toBeGreaterThan(50)
+        ->and(strtotime($status['errors']['retry_after']) - time())->toBeBetween(5, 11);
+});
+
 it('lets diagnostic requests bypass a quota pause', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(429, ['Content-Type' => 'text/plain'], 'Error quota exceeded'));
-    $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 0.01, 'default_retry_after' => 60]);
+    $upstream = createUpstreamFixture(fn () => new Response(429, ['Content-Type' => 'text/plain', 'X-Error-Quota-Reached' => '1'], 'Error quota exceeded'));
+    $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 0.01, 'quota_pause' => 60]);
     $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'example-api-key-aB3x9K2m'];
 
     \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'normal'])));
