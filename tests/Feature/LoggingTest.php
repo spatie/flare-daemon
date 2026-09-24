@@ -11,7 +11,7 @@ use Spatie\FlareDaemon\Support\Output;
 use Spatie\FlareDaemon\Upstream;
 
 /**
- * @param  array{verbose?: bool, byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int, summary_interval?: float}  $options
+ * @param  array{verbose?: bool, byte_threshold?: int, flush_after?: float, maintenance_interval?: float, quota_pause?: int, rate_limit_pause?: int, summary_interval?: float}  $options
  * @return array{daemon_url: string, client: Browser, ingest: Ingest, server: Server, stdout: resource, stderr: resource}
  */
 function createDaemonFixtureWithCapture(string $upstreamBaseUrl, array $options = []): array
@@ -38,7 +38,8 @@ function createDaemonFixtureWithCapture(string $upstreamBaseUrl, array $options 
         byteThreshold: $options['byte_threshold'] ?? 256,
         flushAfterSeconds: $options['flush_after'] ?? 0.05,
         maintenanceIntervalSeconds: $options['maintenance_interval'] ?? 0.01,
-        defaultRetryAfterSeconds: $options['default_retry_after'] ?? 1,
+        quotaPauseSeconds: $options['quota_pause'] ?? 1,
+        rateLimitPauseSeconds: $options['rate_limit_pause'] ?? 1,
         summaryIntervalSeconds: $options['summary_interval'] ?? 0.05,
     );
 
@@ -304,7 +305,7 @@ it('logs the status and cf-ray of a forbidden response', function () {
 it('warns about payloads dropped while paused, including queued payloads', function () {
     $upstreamResponse = new Deferred;
     $upstream = createUpstreamFixture(fn () => $upstreamResponse->promise());
-    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['default_retry_after' => 60, 'summary_interval' => 0.02]);
+    $daemon = createDaemonFixtureWithCapture($upstream['base_url'], ['rate_limit_pause' => 60, 'summary_interval' => 0.02]);
     $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
 
     foreach (['in flight', 'queued', 'queued'] as $message) {
@@ -348,14 +349,14 @@ it('logs one resume for a logged pause when payloads arrive right after it expir
     $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
 
     \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'paused'])));
-    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'upstream request paused by quota'));
+    waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'upstream request paused'));
     waitFor(0.15);
     \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'after expiry'])));
     waitUntil(fn () => str_contains(readStream($daemon['stdout']), 'upstream pause expired'), timeout: 1.5);
 
     $stdout = readStream($daemon['stdout']);
 
-    expect(substr_count($stdout, 'upstream request paused by quota'))->toBe(1)
+    expect(substr_count($stdout, 'upstream request paused'))->toBe(1)
         ->and(substr_count($stdout, 'upstream pause expired'))->toBe(1);
 });
 
@@ -380,6 +381,6 @@ it('logs a repeated pause once until a payload is forwarded', function () {
 
     $stdout = readStream($daemon['stdout']);
 
-    expect(substr_count($stdout, 'upstream request paused by quota'))->toBe(2)
+    expect(substr_count($stdout, 'upstream request paused'))->toBe(2)
         ->and(substr_count($stdout, 'upstream pause expired'))->toBe(2);
 });

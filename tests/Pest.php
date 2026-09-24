@@ -160,7 +160,7 @@ function createUpstreamFixture(callable $handler): array
 }
 
 /**
- * @param  array{byte_threshold?: int, flush_after?: float, maintenance_interval?: float, default_retry_after?: int}  $options
+ * @param  array{byte_threshold?: int, flush_after?: float, maintenance_interval?: float, quota_pause?: int, rate_limit_pause?: int}  $options
  * @return array{daemon_url: string, client: Browser, ingest: Ingest, server: Server, quota_state: QuotaState}
  */
 function createDaemonFixture(string $upstreamBaseUrl, array $options = []): array
@@ -181,7 +181,8 @@ function createDaemonFixture(string $upstreamBaseUrl, array $options = []): arra
         byteThreshold: $options['byte_threshold'] ?? 256,
         flushAfterSeconds: $options['flush_after'] ?? 0.05,
         maintenanceIntervalSeconds: $options['maintenance_interval'] ?? 0.01,
-        defaultRetryAfterSeconds: $options['default_retry_after'] ?? 1,
+        quotaPauseSeconds: $options['quota_pause'] ?? 1,
+        rateLimitPauseSeconds: $options['rate_limit_pause'] ?? 1,
     );
 
     $server = new Server(

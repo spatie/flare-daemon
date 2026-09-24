@@ -26,7 +26,7 @@ it('exposes health and status endpoints', function () {
 it('keeps status records separate when masked key labels collide', function () {
     $rejectWithKeyInReason = fn (ServerRequestInterface $request) => new Response(429, [], 'Quota exceeded for '.$request->getHeaderLine('X-API-Token'));
     $upstream = createUpstreamFixture($rejectWithKeyInReason);
-    $daemon = createDaemonFixture($upstream['base_url'], ['default_retry_after' => 60]);
+    $daemon = createDaemonFixture($upstream['base_url'], ['rate_limit_pause' => 60]);
     $firstKey = 'example-first-private-key-aB3x9K2m';
     $secondKey = 'example-second-private-key-aB3x9K2m';
 
