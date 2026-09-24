@@ -2,6 +2,16 @@
 
 All notable changes to `flare-daemon` will be documented in this file.
 
+## 0.3.1 - 2026-09-24
+
+### What's Changed
+
+* Stop pausing delivery on upstream 403 responses by @AlexVanderbist in https://github.com/spatie/flare-daemon/pull/15
+* Log pauses and resumes only when the pause state changes by @AlexVanderbist in https://github.com/spatie/flare-daemon/pull/16
+* Pause shorter on rate limit 429s than on quota 429s by @AlexVanderbist in https://github.com/spatie/flare-daemon/pull/17
+
+**Full Changelog**: https://github.com/spatie/flare-daemon/compare/0.3.0...0.3.1
+
 ## 0.3.0 - 2026-07-02
 
 Support PHP 8.1 and up. The daemon, Docker image, Composer package, and Helm chart now install and run on PHP 8.1 and higher (previously 8.2 and higher). The daemon source was already compatible, so this lowers the declared floor and rebuilds the PHAR so its embedded platform check accepts 8.1.
