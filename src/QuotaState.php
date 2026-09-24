@@ -24,19 +24,7 @@ class QuotaState
 
     public function isPaused(string $apiKey, string $type, float $now): bool
     {
-        $state = $this->states[$apiKey][$type] ?? null;
-
-        if ($state === null) {
-            return false;
-        }
-
-        if ($state['retry_after'] <= $now) {
-            $this->resume($apiKey, $type);
-
-            return false;
-        }
-
-        return true;
+        return ($this->states[$apiKey][$type]['retry_after'] ?? 0.0) > $now;
     }
 
     public function reason(string $apiKey, string $type, float $now): ?string
