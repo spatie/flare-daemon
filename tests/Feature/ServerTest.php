@@ -1,5 +1,6 @@
 <?php
 
+use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Loop;
 use React\Http\Browser;
 use React\Http\Message\Response;
@@ -19,7 +20,38 @@ it('exposes health and status endpoints', function () {
     expect($healthResponse->getStatusCode())->toBe(200)
         ->and(json_decode((string) $healthResponse->getBody(), true))->toBe(['status' => 'ok'])
         ->and($statusResponse->getStatusCode())->toBe(200)
-        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
+        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['degraded' => false, 'total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
+});
+
+it('keeps status records separate when masked key labels collide', function () {
+    $rejectWithKeyInReason = fn (ServerRequestInterface $request) => new Response(429, [], 'Quota exceeded for '.$request->getHeaderLine('X-API-Token'));
+    $upstream = createUpstreamFixture($rejectWithKeyInReason);
+    $daemon = createDaemonFixture($upstream['base_url'], ['default_retry_after' => 60]);
+    $firstKey = 'example-first-private-key-aB3x9K2m';
+    $secondKey = 'example-second-private-key-aB3x9K2m';
+
+    foreach ([$firstKey => 'errors', $secondKey => 'traces'] as $apiKey => $type) {
+        \React\Async\await($daemon['client']->post(
+            $daemon['daemon_url']."/v1/{$type}",
+            ['Content-Type' => 'application/json', 'X-API-Token' => $apiKey],
+            encodePayload(['message' => 'blocked']),
+        ));
+
+        waitUntil(fn () => $daemon['quota_state']->isPaused($apiKey, $type, microtime(true)));
+    }
+
+    $response = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
+    $status = json_decode((string) $response->getBody(), true);
+
+    expect((string) $response->getBody())->not->toContain($firstKey);
+    expect((string) $response->getBody())->not->toContain($secondKey);
+    expect($status['keys'])->toHaveCount(2)
+        ->and($status['keys']['...aB3x9K2m']['errors']['paused'])->toBeTrue()
+        ->and($status['keys']['...aB3x9K2m']['traces']['paused'])->toBeFalse()
+        ->and($status['keys']['...aB3x9K2m#2']['errors']['paused'])->toBeFalse()
+        ->and($status['keys']['...aB3x9K2m#2']['traces']['paused'])->toBeTrue()
+        ->and($upstream['requests'][0]['headers']['X-API-Token'][0] ?? null)->toBe($firstKey)
+        ->and($upstream['requests'][1]['headers']['X-API-Token'][0] ?? null)->toBe($secondKey);
 });
 
 it('validates incoming requests', function () {
@@ -138,13 +170,11 @@ it('returns upstream errors for test payloads without mutating daemon quota stat
         encodePayload(['message' => 'test']),
     ));
 
-    $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-
     expect($testResponse->getStatusCode())->toBe(429)
         ->and($testResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and($testResponse->getHeaderLine('Retry-After'))->toBe('60')
         ->and((string) $testResponse->getBody())->toBe('Trace quota exceeded')
-        ->and(json_decode((string) $statusResponse->getBody(), true))->toBe(['total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
+        ->and(fetchStatus($daemon))->toBe(['degraded' => false, 'total_received' => 0, 'total_buffered' => 0, 'total_forwarded' => 0, 'total_dropped' => 0, 'keys' => []]);
 });
 
 it('returns validation and rejection responses for test payloads', function () {
@@ -155,12 +185,23 @@ it('returns validation and rejection responses for test payloads', function () {
 
         return match ($responseCount) {
             1 => new Response(403, ['Content-Type' => 'text/plain'], 'Invalid API key'),
+            2 => new Response(403, ['Content-Type' => 'application/json'], 'true'),
             default => new Response(422, ['Content-Type' => 'application/json'], '{"message":"The given data was invalid.","errors":{"payload":["Invalid"]}}'),
         };
     });
     $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 1.0]);
 
     $forbiddenResponse = \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        [
+            'Content-Type' => 'application/json',
+            'X-API-Token' => 'api-key',
+            'X-Flare-Test' => '1',
+        ],
+        encodePayload(['message' => 'test']),
+    ));
+
+    $scalarResponse = \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/errors',
         [
             'Content-Type' => 'application/json',
@@ -183,6 +224,9 @@ it('returns validation and rejection responses for test payloads', function () {
     expect($forbiddenResponse->getStatusCode())->toBe(403)
         ->and($forbiddenResponse->getHeaderLine('Content-Type'))->toContain('text/plain')
         ->and((string) $forbiddenResponse->getBody())->toBe('Invalid API key')
+        ->and($scalarResponse->getStatusCode())->toBe(403)
+        ->and($scalarResponse->getHeaderLine('Content-Type'))->toContain('application/json')
+        ->and((string) $scalarResponse->getBody())->toBe('true')
         ->and($invalidResponse->getStatusCode())->toBe(422)
         ->and($invalidResponse->getHeaderLine('Content-Type'))->toContain('application/json')
         ->and(json_decode((string) $invalidResponse->getBody(), true))->toBe([

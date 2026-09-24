@@ -23,30 +23,24 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 1]),
     ));
 
     waitUntil(fn () => $upstream['requests']->count() === 1);
-    waitUntil(function () use ($daemon) {
-        $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-        $statusBody = json_decode((string) $statusResponse->getBody(), true);
+    waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['traces']['paused'] ?? false);
 
-        return $statusBody['keys']['api-key']['traces']['paused'] ?? false;
-    });
+    $status = fetchStatus($daemon);
 
-    $statusWhilePaused = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-    $pausedBody = json_decode((string) $statusWhilePaused->getBody(), true);
-
-    expect($pausedBody['keys']['api-key']['traces']['paused'])->toBeTrue()
-        ->and($pausedBody['keys']['api-key']['traces']['last_429_reason'])->toBe('Trace quota exceeded');
+    expect($status['keys']['...aB3x9K2m']['traces']['pause_reason'])->toBe('Trace quota exceeded')
+        ->and($status['degraded'])->toBeFalse();
 
     \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 2]),
     ));
@@ -57,7 +51,7 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         $daemon['daemon_url'].'/v1/traces',
         [
             'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
+            'X-API-Token' => 'example-api-key-aB3x9K2m',
         ],
         encodePayload(['trace' => 3]),
     ));
@@ -69,37 +63,53 @@ it('pauses a key and type after a 429 response and resumes after retry after', f
         ->and(upstreamBody($upstream['requests'], 1))->toBe(['trace' => 3]);
 });
 
-it('keeps permanent pause state for normal payloads while still allowing diagnostic test requests', function () {
-    $upstream = createUpstreamFixture(fn () => new Response(403, ['Content-Type' => 'text/plain'], 'Invalid API key'));
-    $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 0.01]);
+it('lets diagnostic requests bypass a quota pause', function () {
+    $upstream = createUpstreamFixture(fn () => new Response(429, ['Content-Type' => 'text/plain'], 'Error quota exceeded'));
+    $daemon = createDaemonFixture($upstream['base_url'], ['flush_after' => 0.01, 'default_retry_after' => 60]);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'example-api-key-aB3x9K2m'];
 
-    \React\Async\await($daemon['client']->post(
-        $daemon['daemon_url'].'/v1/errors',
-        [
-            'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
-        ],
-        encodePayload(['message' => 'normal']),
-    ));
-
-    waitFor(0.05);
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'normal'])));
+    waitUntil(fn () => fetchStatus($daemon)['keys']['...aB3x9K2m']['errors']['paused'] ?? false);
 
     $testResponse = \React\Async\await($daemon['client']->post(
         $daemon['daemon_url'].'/v1/errors',
-        [
-            'Content-Type' => 'application/json',
-            'X-API-Token' => 'api-key',
-            'X-Flare-Test' => '1',
-        ],
+        [...$headers, 'X-Flare-Test' => '1'],
         encodePayload(['message' => 'test']),
     ));
 
-    $statusResponse = \React\Async\await($daemon['client']->get($daemon['daemon_url'].'/status'));
-    $statusBody = json_decode((string) $statusResponse->getBody(), true);
+    expect($testResponse->getStatusCode())->toBe(429)
+        ->and((string) $testResponse->getBody())->toBe('Error quota exceeded')
+        ->and($upstream['requests'])->toHaveCount(2);
+});
 
-    expect($testResponse->getStatusCode())->toBe(403)
-        ->and((string) $testResponse->getBody())->toBe('Invalid API key')
-        ->and($statusBody['keys']['api-key']['errors']['paused'])->toBeTrue()
-        ->and($statusBody['keys']['api-key']['traces']['paused'])->toBeTrue()
-        ->and($statusBody['keys']['api-key']['logs']['paused'])->toBeTrue();
+it('reports the daemon as degraded after a network error', function () {
+    $daemon = createDaemonFixture('http://'.freeLocalAddress());
+
+    \React\Async\await($daemon['client']->post(
+        $daemon['daemon_url'].'/v1/errors',
+        ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'],
+        encodePayload(['message' => 'unreachable']),
+    ));
+    waitUntil(fn () => fetchStatus($daemon)['degraded']);
+
+    expect(fetchStatus($daemon)['degraded'])->toBeTrue();
+});
+
+it('keeps forwarding after a forbidden response and reports the daemon as degraded', function () {
+    $responseCount = 0;
+    $upstream = createUpstreamFixture(function () use (&$responseCount) {
+        return ++$responseCount === 1
+            ? new Response(403, ['Content-Type' => 'text/html'], '<html>Cloudflare: request blocked</html>')
+            : new Response(204);
+    });
+    $daemon = createDaemonFixture($upstream['base_url']);
+    $headers = ['Content-Type' => 'application/json', 'X-API-Token' => 'api-key'];
+
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'blocked'])));
+    waitUntil(fn () => fetchStatus($daemon)['degraded']);
+    \React\Async\await($daemon['client']->post($daemon['daemon_url'].'/v1/errors', $headers, encodePayload(['message' => 'next'])));
+    waitUntil(fn () => $daemon['ingest']->stats()['forwarded'] === 1);
+
+    expect(upstreamBody($upstream['requests'], 1))->toBe(['message' => 'next'])
+        ->and(fetchStatus($daemon)['keys'])->toBe([]);
 });

@@ -50,8 +50,8 @@ The daemon sends raw payloads to the Cloudflare ingress workers at `ingress.flar
 | Flush policy | Time-based and size-based |
 | Test payloads | Use a dedicated synchronous diagnostic path and bypass the local buffer |
 | Upstream contract | Raw payloads to CF ingress workers at `ingress.flareapp.io` |
-| Quota handling | Example implementation based on HTTP `429` |
-| Status endpoint | Exposes raw API keys |
+| Quota handling | Pause per API key and type on HTTP `429` |
+| Status endpoint | Exposes masked API key suffixes |
 | Update detection | Watch `composer.lock` and self-shutdown gracefully |
 | Distribution | PHAR + Docker image |
 
@@ -65,7 +65,8 @@ Observed patterns there:
 - the errors endpoint is a transparent proxy to the real Flare API, which currently returns `204`; the traces and logs workers return a hardcoded `201`
 - invalid method returns `405` with plain text
 - missing API key returns `401` with plain text
-- invalid API key returns `403` with plain text
+- invalid API key returns `403` with a plain-text body or a JSON `message` such as `Invalid API key`
+- the Flare API can also return `403` for errors, for example `No active subscription` or `Plan limit exceeded`
 - quota and rate limits return `429` with plain-text bodies such as `Trace quota exceeded` and `Rate limit exceeded`
 - validation failures return `422` with JSON like:
 
@@ -297,32 +298,42 @@ The daemon exposes:
 
 ```json
 {
+  "degraded": false,
+  "total_received": 13,
+  "total_buffered": 11,
+  "total_forwarded": 6,
+  "total_dropped": 7,
   "keys": {
-    "abc123": {
+    "...aB3x9K2m": {
       "errors": {
         "buffered": 3,
         "paused": false,
         "retry_after": null,
-        "last_429_reason": null
+        "last_429_reason": null,
+        "pause_reason": null
       },
       "traces": {
         "buffered": 0,
         "paused": true,
         "retry_after": "2026-03-17T12:00:00Z",
-        "last_429_reason": "Trace quota exceeded"
+        "last_429_reason": "Trace quota exceeded",
+        "pause_reason": "Trace quota exceeded"
       },
       "logs": {
         "buffered": 1,
         "paused": false,
         "retry_after": null,
-        "last_429_reason": null
+        "last_429_reason": null,
+        "pause_reason": null
       }
     }
   }
 }
 ```
 
-Raw API keys are acceptable in this endpoint for v1.
+`total_dropped` is `total_received` minus `total_forwarded`. It is not a count of lost payloads. It also includes payloads that are still buffered or in flight, payloads the upstream rejected or that failed to deliver, and payloads received during shutdown. In this example, 2 payloads were dropped by a pause, 1 was rejected with a `429`, and 4 are still buffered.
+
+Keys show only their last eight characters. Keys of eight characters or fewer show `[redacted]`, and colliding labels get a `#2`, `#3` suffix. `degraded` is true when an upstream delivery failed in the last 60 seconds with a network error or a status other than `2xx`, `422`, or `429`. Quota pauses show per stream instead. `last_429_reason` is a legacy alias of `pause_reason`.
 
 ## Entry Point
 
@@ -470,7 +481,7 @@ Each upstream request contains a single payload in v1.
 The daemon should be able to handle at least:
 
 - any `2xx` success (the errors CF worker proxies to the real Flare API which returns `204`; traces/logs workers return `201`)
-- `403` invalid API key
+- `403` invalid API key, Flare API rejection, or proxy or firewall rejection
 - `422` validation failure with JSON body
 - `429` rate limit or quota exceeded, with either:
   - plain-text body such as `Rate limit exceeded`
@@ -486,8 +497,8 @@ Quota logic in v1 should be intentionally simple.
 
 1. Any upstream `429` pauses that API key + entity type
 2. If `Retry-After` is present, resume when that time is reached
-3. If `Retry-After` is absent, retry with a probe flush every 60 seconds
-4. Store the best-effort reason string for status/logging
+3. If `Retry-After` is absent, resume after 60 seconds
+4. Store the best-effort reason string for status/logging, with the API key masked
 
 Reason extraction order:
 
@@ -504,9 +515,9 @@ logic should depend on the status code first, not on fragile body parsing.
 
 - any `2xx`: item is considered delivered
 
-### Permanent failure
+### Forbidden
 
-- `403`: log prominently and pause all types for that API key until restart
+- `403`: log the status, the `CF-Ray` header, and a summary of the body, then drop the item. Never pause: a `403` may be specific to one payload, and delivery should behave the same as sending without the daemon.
 
 ### Validation failure
 
@@ -518,7 +529,7 @@ logic should depend on the status code first, not on fragile body parsing.
 
 ### Other failure
 
-- log status code and a truncated body
+- log status code, the `CF-Ray` header, and a truncated body with the API key masked
 - drop the item
 
 ### Body parsing

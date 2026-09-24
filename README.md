@@ -31,7 +31,7 @@ The daemon is a single PHP process built on ReactPHP's event loop:
 - **Buffers** — per API key, per entity type (errors/traces/logs), in-memory only
 - **Flush cycle** — a periodic timer (every 1s) checks buffer age and size thresholds
 - **Upstream** — sends buffered payloads to Flare ingress over HTTP
-- **Quota state** — tracks 429/403 responses and pauses ingestion per key/type
+- **Quota state** — tracks 429 responses and pauses ingestion per key/type
 - **Test payloads** — bypass the buffer entirely, make a synchronous upstream request, and return the upstream response to the caller
 - **Composer.lock watcher** — optional periodic timer that triggers graceful shutdown on file changes
 - **Signal handlers** — SIGINT/SIGTERM trigger graceful shutdown (drain buffers, then stop)
@@ -146,6 +146,18 @@ All configuration is done through environment variables:
 | `FLARE_DAEMON_FLUSH_AFTER_SECONDS` | `10` | Seconds before maintenance flushes oldest buffered items (safety net) |
 | `FLARE_DAEMON_UPSTREAM_TIMEOUT_SECONDS` | `10` | Timeout in seconds for upstream requests |
 | `FLARE_COMPOSER_LOCK` | _(none)_ | Path to `composer.lock` — daemon stops when the file changes |
+
+### Upstream failures and delivery status
+
+An upstream `429` pauses only the affected API key and telemetry type. The pause honors `Retry-After` and otherwise lasts 60 seconds. The next payload after the pause tries upstream again.
+
+Any other failure, including `403`, drops only that payload and never pauses delivery. The next payload is sent upstream as usual, the same as sending without the daemon. A `403` may come from an invalid key, the Flare API, or a proxy or firewall. The error log includes the status, the `CF-Ray` header, and a short summary of the response body.
+
+Normal requests still return `202` while paused, and their payloads are dropped, including payloads that were already queued. Failed payloads are not replayed. The daemon logs a recurring warning with dropped counts while traffic continues during a pause. Diagnostic requests (`X-Flare-Test: 1`) bypass the pause and return the upstream response.
+
+`/health` reports process liveness, not upstream delivery. Monitor `/status` for `degraded: true`, which means an upstream delivery failed in the last 60 seconds with a network error or a status other than `2xx`, `422`, or `429`. Quota pauses do not set `degraded`. Each stream exposes `paused`, `retry_after`, and `pause_reason` instead. The legacy `last_429_reason` field remains as an alias. Inspect forwarding counters and logs as well.
+
+Keys in `/status`, `api_key` log fields, and logged response bodies show only the last eight characters, prefixed with `...` (for example, `...aB3x9K2m`). Keys with eight characters or fewer display `[redacted]` and are not replaced inside other text, because such short values would also match unrelated text. Match the suffix against your configured key when debugging. Update tooling that indexes `/status.keys` using a raw API key. If labels collide, `/status` adds `#2`, `#3`, and so on to keep their records separate within the response. These labels are for display only and are not stable unique identifiers; authentication and internal state still use the full key.
 
 ### Smoke-testing with a real API key
 

@@ -1,5 +1,6 @@
 <?php
 
+use React\Http\Message\Uri;
 use Spatie\FlareDaemon\Support\Output;
 
 it('writes debug messages only when verbose is enabled', function () {
@@ -30,4 +31,49 @@ it('always writes info messages regardless of verbose setting', function () {
     rewind($stdout);
     expect(stream_get_contents($stdout))->toContain('INFO')
         ->toContain('always visible');
+});
+
+it('redacts credentials in structured logs and exception messages', function () {
+    $apiKey = 'secret/key"with-escaping-aB3x9K2m';
+    $capture = makeOutputWithCapture();
+
+    $capture['output']->error('upstream request failed', [
+        'api_key' => $apiKey,
+        'body' => ['message' => "Rejected {$apiKey}"],
+        'exception' => new RuntimeException("Rejected {$apiKey}"),
+    ]);
+
+    $log = readStream($capture['stderr']);
+
+    expect(substr_count($log, 'Rejected ...aB3x9K2m'))->toBe(2);
+    expect($log)->not->toContain('secret');
+    expect($log)->not->toContain('with-escaping');
+});
+
+it('redacts credentials in stringable log values', function () {
+    $apiKey = 'example-private-key-aB3x9K2m';
+    $capture = makeOutputWithCapture();
+
+    $capture['output']->error('upstream request failed', [
+        'api_key' => $apiKey,
+        'url' => new Uri("https://example.com/?key={$apiKey}"),
+    ]);
+
+    $log = readStream($capture['stderr']);
+
+    expect($log)->toContain('?key=...aB3x9K2m');
+    expect($log)->not->toContain($apiKey);
+});
+
+it('labels short api keys without rewriting other log text', function () {
+    $capture = makeOutputWithCapture();
+
+    $capture['output']->error('upstream request failed', [
+        'api_key' => '20',
+        'body' => 'rejected at 2026-01-20',
+    ]);
+
+    expect(readStream($capture['stderr']))
+        ->toContain('"api_key":"[redacted]"')
+        ->toContain('rejected at 2026-01-20');
 });

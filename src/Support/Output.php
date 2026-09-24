@@ -77,19 +77,22 @@ class Output
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
-    protected function normalize(array $context): array
+    protected function normalize(array $context, ?string $apiKey = null): array
     {
+        $apiKey ??= is_string($context['api_key'] ?? null) ? $context['api_key'] : null;
         $normalized = [];
 
         foreach ($context as $key => $value) {
             $normalized[$key] = match (true) {
-                $value instanceof \Throwable => [
+                $key === 'api_key' && is_string($value) => ApiKey::label($value),
+                $value instanceof \Throwable => $this->normalize([
                     'class' => $value::class,
                     'message' => $value->getMessage(),
-                ],
+                ], $apiKey),
+                is_string($value) => ApiKey::redact($value, $apiKey),
                 is_scalar($value), $value === null => $value,
-                $value instanceof Stringable => (string) $value,
-                is_array($value) => $this->normalize($value),
+                $value instanceof Stringable => ApiKey::redact((string) $value, $apiKey),
+                is_array($value) => $this->normalize($value, $apiKey),
                 default => get_debug_type($value),
             };
         }

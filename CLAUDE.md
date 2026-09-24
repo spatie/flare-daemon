@@ -76,7 +76,8 @@ The release workflow publishes the chart as `oci://ghcr.io/spatie/charts/flare-d
 
 - Buffers are per API key × entity type (errors/traces/logs). Not a single shared queue.
 - Test payloads (`X-Flare-Test: 1`) force an immediate flush and return the upstream response directly. Normal payloads return JSON `202 {"status":"accepted"}` immediately.
-- 429 pauses that (key, type); 403 pauses all types for that key permanently. Normal items are dropped on pause, test items are kept.
+- 429 pauses only the affected (key, type), honoring Retry-After or falling back to 60 seconds. Normal items, including already queued ones, are dropped on pause; diagnostic requests bypass it.
+- 403 and every other failure drop only that payload and never pause. A 403 can come from the edge worker, the Flare API, or a Cloudflare WAF rule, and the daemon cannot tell whether it will last. `/status.degraded` means a delivery failed recently, not that a stream is paused.
 - Upstream sends one payload per request (no batch API in v1).
 - The errors CF worker is a transparent proxy — it passes through whatever status the real Flare API returns (currently 204). Traces/logs workers return a hardcoded 201. The daemon must treat any 2xx as success, not maintain an allowlist.
 
@@ -104,7 +105,7 @@ kill %1
 
 `--test` mode uses `NullUpstream` — payloads are accepted and flushed through the full pipeline but no HTTP leaves the process. Stats (received, buffered, forwarded, pending, memory) are printed every 5 seconds.
 
-The `/status` endpoint exposes lifetime counters: `total_received` (all 202 responses), `total_buffered` (passed the pause check), `total_forwarded` (sent upstream successfully), and `total_dropped` (received minus forwarded).
+The `/status` endpoint exposes lifetime counters: `total_received` (all 202 responses), `total_buffered` (passed the pause check), `total_forwarded` (sent upstream successfully), and `total_dropped` (received minus forwarded, so it counts every payload not forwarded yet: paused, buffered, in flight, rejected, failed, or received during shutdown).
 
 The k6 script ramps from 1→200 VUs over 80 seconds, posting realistic error payloads to `/v1/errors`. Pass `DAEMON_URL` and `API_KEY` env vars to customize.
 
