@@ -253,8 +253,11 @@ function upstreamBody(ArrayObject $requests, int $index): array
     expect($request)->toBeArray();
     expect($request['body'] ?? null)->toBeArray();
 
-    /** @var array<array-key, mixed> $body */
-    $body = $request['body'];
+    $body = $request['body'] ?? null;
+
+    if (! is_array($body)) {
+        throw new RuntimeException('Expected an upstream request with an array body.');
+    }
 
     return $body;
 }
