@@ -29,7 +29,7 @@
         "react/async": "^4.3",
         "spatie/flare-daemon-runtime": "*",
         "spatie/ray": "^1.28",
-        "symfony/process": "^7.2"
+        "symfony/process": "^8.1"
     },
     "autoload": {
         "psr-4": {
