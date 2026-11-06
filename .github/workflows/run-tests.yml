@@ -85,5 +85,20 @@ jobs:
       - name: Smoke-test bundled Composer binary
         run: bash tests/smoke/composer-bin.sh
 
-      - name: Build and smoke-test runtime PHAR
+      - name: Set up the PHAR build toolchain
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Build and smoke-test PHAR
         run: bash tests/smoke/phar.sh
+
+      - name: Restore target runtime PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Smoke-test rebuilt Composer binary
+        run: bash tests/smoke/composer-bin.sh
