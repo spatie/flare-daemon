@@ -204,9 +204,19 @@ On an M-series Mac the daemon sustains ~18,000 reports/sec with p95 latency unde
 
 ## Testing
 
+Running the development test suite requires PHP 8.4.1 or higher and Helm. Symfony Process 8.1 is a
+development-only dependency used to render the Helm chart in tests. Install the development dependencies first:
+
 ```bash
+composer install
 composer test
+composer analyse
 ```
+
+Application installs (`composer install --no-dev`), the bundled Composer binary, and the standalone PHAR
+continue to support PHP 8.1 and higher. They do not include Symfony Process or Pest. CI runs the full
+development suite on PHP 8.4.1 and newer, and separately smoke-tests production installs and PHAR builds
+on PHP 8.1–8.3 without installing the development toolchain.
 
 ## Changelog
 
